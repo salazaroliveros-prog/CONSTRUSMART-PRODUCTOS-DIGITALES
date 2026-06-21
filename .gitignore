@@ -27,3 +27,6 @@ dist-ssr
 *.sw?
 
 .vercel
+.playwright-mcp/
+*.tgz
+session-ses_*.md
