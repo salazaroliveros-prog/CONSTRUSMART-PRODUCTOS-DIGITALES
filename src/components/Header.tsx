@@ -1,0 +1,87 @@
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Menu, X, HardHat } from 'lucide-react';
+import CartButton from '@/components/CartButton';
+
+const Header: React.FC<{ onNavigate?: (id: string) => void }> = ({ onNavigate }) => {
+  const [open, setOpen] = useState(false);
+
+  const links = [
+    { id: 'inicio', label: 'Inicio' },
+    { id: 'productos', label: 'Productos Digitales' },
+    { id: 'servicios', label: 'Servicios' },
+    { id: 'calculadora', label: 'Calculadora' },
+    { id: 'contacto', label: 'Contacto' },
+  ];
+
+  const handleClick = (id: string) => {
+    setOpen(false);
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    onNavigate?.(id);
+  };
+
+  return (
+    <header className="fixed top-0 left-0 right-0 z-50 bg-[#1a2332]/95 backdrop-blur-md border-b border-white/10">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between">
+        <button onClick={() => handleClick('inicio')} className="flex items-center gap-3 text-white">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+            <HardHat className="w-6 h-6 text-white" />
+          </div>
+          <div className="text-left">
+            <div className="font-bold text-lg leading-none">ConstructoraGT</div>
+            <div className="text-xs text-orange-400">Soluciones integrales</div>
+          </div>
+        </button>
+
+        <nav className="hidden lg:flex items-center gap-8">
+          {links.map(l => (
+            <button
+              key={l.id}
+              onClick={() => handleClick(l.id)}
+              className="text-white/80 hover:text-orange-400 transition text-sm font-medium"
+            >
+              {l.label}
+            </button>
+          ))}
+          <CartButton />
+          <Link to="/admin" className="text-white/50 hover:text-white text-xs">Admin</Link>
+          <button
+            onClick={() => handleClick('contacto')}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition"
+          >
+            Solicitar Cotización
+          </button>
+        </nav>
+
+        <button onClick={() => setOpen(!open)} className="lg:hidden text-white">
+          {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+      </div>
+
+      {open && (
+        <div className="lg:hidden bg-[#1a2332] border-t border-white/10 px-4 py-4 space-y-2">
+          {links.map(l => (
+            <button
+              key={l.id}
+              onClick={() => handleClick(l.id)}
+              className="block w-full text-left text-white/80 hover:text-orange-400 py-2"
+            >
+              {l.label}
+            </button>
+          ))}
+          <CartButton />
+          <Link to="/admin" className="block text-white/60 py-2 text-sm">Panel Admin</Link>
+          <button
+            onClick={() => handleClick('contacto')}
+            className="w-full bg-orange-500 text-white px-4 py-3 rounded-lg font-semibold"
+          >
+            Solicitar Cotización
+          </button>
+        </div>
+      )}
+    </header>
+  );
+};
+
+export default Header;
