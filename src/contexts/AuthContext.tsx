@@ -86,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // For demo purposes, we'll allow any email with a specific password
       // In production, you should validate against real user records
-      if (email === import.meta.env.ADMIN_EMAIL || email === 'admin@construsmart.gt') {
+      if (email === import.meta.env.VITE_ADMIN_EMAIL || email === 'admin@construsmart.gt') {
         setUser({
           id: data.user?.id || 'admin-id',
           email: data.user?.email || email,
