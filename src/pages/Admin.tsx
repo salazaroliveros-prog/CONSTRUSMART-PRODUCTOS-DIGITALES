@@ -402,17 +402,19 @@ const BankingForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
     instructions: '',
   });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
-    const success = await bankingService.addBankingInfo({
+    const result = await bankingService.addBankingInfo({
       ...form,
       is_active: true,
     });
 
-    if (success) {
+    if (result.success) {
       setForm({
         bank_name: '',
         account_name: '',
@@ -424,6 +426,8 @@ const BankingForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
         instructions: '',
       });
       onSuccess();
+    } else {
+      setError(result.error || 'Error al guardar la cuenta bancaria');
     }
 
     setLoading(false);
@@ -435,6 +439,11 @@ const BankingForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
         <Plus className="w-5 h-5 text-green-500" />
         Agregar Nueva Cuenta Bancaria
       </h3>
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          {error}
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="grid md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del Banco *</label>

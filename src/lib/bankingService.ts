@@ -63,17 +63,17 @@ class BankingService {
   }
 
   // Agregar datos bancarios (admin)
-  async addBankingInfo(info: Omit<BankingInfo, 'id' | 'created_at' | 'updated_at'>): Promise<boolean> {
+  async addBankingInfo(info: Omit<BankingInfo, 'id' | 'created_at' | 'updated_at'>): Promise<{ success: boolean; error?: string }> {
     try {
       const { error } = await supabase
         .from('admin_banking')
         .insert([info]);
 
       if (error) throw error;
-      return true;
-    } catch (error) {
+      return { success: true };
+    } catch (error: any) {
       console.error('Error adding banking info:', error);
-      return false;
+      return { success: false, error: error?.message || 'Error al guardar la cuenta bancaria' };
     }
   }
 
