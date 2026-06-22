@@ -165,7 +165,7 @@ class EmailService {
 
               <div class="footer">
                 <p>ConstructoraGT - Soluciones Integrales para la Construcción</p>
-                <p>📍 Guatemala | 📧 soporte@construsmart.gt | 📱 +502 XXXX XXXX</p>
+                <p>📍 Guatemala | 📧 salazaroliveros@gmail.com | 📱 +502 4060 1526</p>
                 <p><small>Este email fue enviado automáticamente. Por favor no respondas.</small></p>
               </div>
             </div>
@@ -245,7 +245,7 @@ class EmailService {
               </div>
 
               <p>Si tienes preguntas urgentes, contáctanos:</p>
-              <p>📱 +502 XXXX XXXX | 📧 soporte@construsmart.gt</p>
+              <p>📱 +502 4060 1526 | 📧 salazaroliveros@gmail.com</p>
 
               <div class="footer">
                 <p>ConstructoraGT - Soluciones Integrales para la Construcción</p>
@@ -305,7 +305,7 @@ class EmailService {
 
               <div class="footer">
                 <p>ConstructoraGT - Soluciones Integrales para la Construcción</p>
-                <p>📍 Guatemala | 📧 soporte@construsmart.gt | 📱 +502 XXXX XXXX</p>
+                <p>📍 Guatemala | 📧 salazaroliveros@gmail.com | 📱 +502 4060 1526</p>
                 <p><small>Este email fue enviado automáticamente. Por favor no respondas.</small></p>
               </div>
             </div>

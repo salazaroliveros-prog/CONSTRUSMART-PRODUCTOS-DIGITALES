@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { formatQ } from '@/lib/constructionData';
 import { bankingService } from '@/lib/bankingService';
-import { companyService } from '@/lib/companyService';
 import { ArrowLeft, Lock, ShieldCheck, CheckCircle2, Building2, Copy, AlertCircle, Package } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -22,9 +21,6 @@ const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const [items, setItems] = useState<CheckoutItem[]>([]);
   const [bankingInfo, setBankingInfo] = useState<any>(null);
-  const [companyEmails, setCompanyEmails] = useState<string[]>([]);
-  const [companyPhones, setCompanyPhones] = useState<string[]>([]);
-  const [whatsapp, setWhatsapp] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState('');
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
@@ -56,15 +52,8 @@ const Checkout: React.FC = () => {
   }, [navigate]);
 
   const loadBankingInfo = async () => {
-    const [info, company, contact] = await Promise.all([
-      bankingService.getActiveBankingInfo(),
-      companyService.getCompanyInfo(),
-      companyService.getContactInfo(),
-    ]);
+    const info = await bankingService.getActiveBankingInfo();
     setBankingInfo(info);
-    if (company.emails?.length) setCompanyEmails(company.emails);
-    if (company.phones?.length) setCompanyPhones(company.phones);
-    if (contact.whatsapp) setWhatsapp(contact.whatsapp);
   };
 
   const totalAmount = items.reduce((sum, item) => sum + item.price, 0);
@@ -180,7 +169,7 @@ const Checkout: React.FC = () => {
             <div className="flex items-start gap-2 mb-2">
               <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-blue-700">
-                <strong>Paso 2:</strong> Envía comprobante a nuestros correos{companyEmails.length > 0 && <>: <strong>{companyEmails.join(', ')}</strong></>}{whatsapp ? <> o por WhatsApp al <strong>+{whatsapp}</strong></> : ''}.{companyPhones.length > 0 && <> También disponible en <strong>{companyPhones.map(p => `+502 ${p}`).join(' / ')}</strong></>} Incluye tu número de orden.
+                <strong>Paso 2:</strong> Envía comprobante a <strong>salazaroliveros@gmail.com</strong> o por WhatsApp al <strong>+502 4060 1526</strong>. Incluye tu número de orden.
               </div>
             </div>
             <div className="flex items-start gap-2">
@@ -298,7 +287,7 @@ const Checkout: React.FC = () => {
               {!bankingInfo ? (
                 <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg">
                   <AlertCircle className="w-5 h-5 inline mr-2" />
-                  Los datos bancarios aún no han sido configurados. Contáctanos a {companyEmails.length > 0 ? companyEmails.join(', ') : 'nuestros correos'} o al WhatsApp {whatsapp ? `+${whatsapp}` : 'disponible'}.
+                  Los datos bancarios aún no han sido configurados. Contáctanos a <strong>salazaroliveros@gmail.com</strong> o al WhatsApp <strong>+502 4060 1526</strong>.
                 </div>
               ) : (
                 <div className="space-y-4">
