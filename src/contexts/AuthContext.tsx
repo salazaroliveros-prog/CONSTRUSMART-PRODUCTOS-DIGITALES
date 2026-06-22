@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { emailService } from '@/lib/emailService';
+import { logger } from '@/lib/logger';
 
 interface User {
   id: string;
@@ -34,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkSession();
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         if (session?.user) {
           const isAdmin = session.user.email === import.meta.env.VITE_ADMIN_EMAIL;
           setUser({
@@ -42,6 +44,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: session.user.email || '',
             role: isAdmin ? 'admin' : 'user',
           });
+          // Send welcome email on first sign up
+          if (event === 'SIGNED_IN' && session.user.user_metadata?.name) {
+            emailService.sendWelcomeEmail(session.user.email!, session.user.user_metadata.name).catch(() => {});
+          }
         } else {
           setUser(null);
         }
@@ -64,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
     } catch (error) {
-      console.error('Error checking session:', error);
+      logger.error('AuthContext', 'Error checking session', error);
     } finally {
       setLoading(false);
     }
