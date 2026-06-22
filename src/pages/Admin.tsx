@@ -4,13 +4,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { formatQ } from '@/lib/constructionData';
 import { bankingService } from '@/lib/bankingService';
+import { receiptAdminService } from '@/lib/receiptAdminService';
+import { toast } from 'sonner';
 import {
   LayoutDashboard, ShoppingCart, Calculator, HardHat, ArrowLeft,
   TrendingUp, Users, DollarSign, Package, RefreshCw, LogOut, Building2,
-  Plus, Edit2, Trash2, CreditCard, Shield,
+  Plus, Edit2, Trash2, CreditCard, Shield, FileText, CheckCircle2,
+  XCircle, Eye, AlertCircle, Loader2,
 } from 'lucide-react';
 
-type Tab = 'overview' | 'orders' | 'quotes' | 'services' | 'leads' | 'banking';
+type Tab = 'overview' | 'orders' | 'quotes' | 'services' | 'leads' | 'banking' | 'receipts';
 
 const Admin: React.FC = () => {
   const { logout, user } = useAuth();
@@ -20,7 +23,24 @@ const Admin: React.FC = () => {
   const [services, setServices] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [bankingInfo, setBankingInfo] = useState<any[]>([]);
+  const [receipts, setReceipts] = useState<any[]>([]);
+  const [receiptStats, setReceiptStats] = useState({ pending: 0, approvedToday: 0, rejected: 0 });
+  const [receiptFilter, setReceiptFilter] = useState<string>('pending');
+  const [rejectModal, setRejectModal] = useState<{ open: boolean; proofId: string }>({ open: false, proofId: '' });
+  const [rejectReason, setRejectReason] = useState('');
+  const [proofPreviewUrl, setProofPreviewUrl] = useState<string | null>(null);
+  const [proofPreviewOpen, setProofPreviewOpen] = useState(false);
+  const [actingOnProof, setActingOnProof] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const loadReceipts = async (statusFilter?: string) => {
+    const [list, stats] = await Promise.all([
+      receiptAdminService.getPendingReceipts({ status: statusFilter || receiptFilter }),
+      receiptAdminService.getReceiptStats(),
+    ]);
+    setReceipts(list);
+    setReceiptStats(stats);
+  };
 
   const loadAll = async () => {
     setLoading(true);
@@ -36,6 +56,7 @@ const Admin: React.FC = () => {
     setServices(s.data || []);
     setLeads(l.data || []);
     setBankingInfo(b || []);
+    loadReceipts();
     setLoading(false);
   };
 
@@ -92,6 +113,7 @@ const Admin: React.FC = () => {
             { id: 'quotes', label: `Cotizaciones (${quotes.length})`, icon: Calculator },
             { id: 'services', label: `Servicios (${services.length})`, icon: HardHat },
             { id: 'leads', label: `Leads (${leads.length})`, icon: Users },
+            { id: 'receipts', label: `Comprobantes${receiptStats.pending > 0 ? ` (${receiptStats.pending})` : ''}`, icon: FileText },
             { id: 'banking', label: 'Datos Bancarios', icon: Building2 },
           ].map(t => (
             <button
@@ -174,8 +196,11 @@ const Admin: React.FC = () => {
                   onChange={e => updateStatus('constructora_orders', o.id, e.target.value)}
                   className="border border-gray-200 rounded px-2 py-1 text-xs"
                 >
-                  <option value="pending">Pendiente</option>
+                  <option value="pending_payment">Pendiente de pago</option>
+                  <option value="awaiting_validation">En verificacion</option>
                   <option value="paid">Pagado</option>
+                  <option value="delivered">Entregado</option>
+                  <option value="rejected">Rechazado</option>
                   <option value="cancelled">Cancelado</option>
                 </select>
               )},
@@ -250,6 +275,189 @@ const Admin: React.FC = () => {
               { label: 'Mensaje', render: l => <div className="max-w-xs truncate text-xs">{l.message}</div> },
             ]}
           />
+        )}
+
+        {tab === 'receipts' && (
+          <div>
+            <div className="grid sm:grid-cols-3 gap-4 mb-6">
+              <div className="bg-white rounded-xl border border-orange-200 p-4">
+                <div className="text-sm text-gray-500">Pendientes</div>
+                <div className="text-2xl font-bold text-orange-600">{receiptStats.pending}</div>
+              </div>
+              <div className="bg-white rounded-xl border border-green-200 p-4">
+                <div className="text-sm text-gray-500">Aprobados hoy</div>
+                <div className="text-2xl font-bold text-green-600">{receiptStats.approvedToday}</div>
+              </div>
+              <div className="bg-white rounded-xl border border-red-200 p-4">
+                <div className="text-sm text-gray-500">Rechazados</div>
+                <div className="text-2xl font-bold text-red-600">{receiptStats.rejected}</div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mb-4">
+              {['pending', 'approved', 'rejected'].map(s => (
+                <button
+                  key={s}
+                  onClick={() => { setReceiptFilter(s); loadReceipts(s); }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                    receiptFilter === s ? 'bg-[#1a2332] text-white' : 'bg-white border border-gray-200 text-gray-700'
+                  }`}
+                >
+                  {s === 'pending' ? 'Pendientes' : s === 'approved' ? 'Aprobados' : 'Rechazados'}
+                </button>
+              ))}
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-700">Fecha</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-700">Cliente</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-700">Producto</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-700">Monto</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-700">Comprobante</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-700">Estado</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-700">Accion</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {receipts.map(r => {
+                      const order = (r as any).constructora_orders || {};
+                      return (
+                        <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50">
+                          <td className="px-4 py-3 text-xs">{new Date(r.created_at).toLocaleDateString()}</td>
+                          <td className="px-4 py-3">
+                            <div className="font-medium">{order.customer_name || '—'}</div>
+                            <div className="text-xs text-gray-500">{r.customer_email}</div>
+                          </td>
+                          <td className="px-4 py-3 text-sm">{order.item_name || '—'}</td>
+                          <td className="px-4 py-3 font-bold text-orange-600">{formatQ(Number(order.amount) || 0)}</td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={async () => {
+                                const url = await supabase.storage.from('payment_receipts').createSignedUrl(r.file_path, 3600);
+                                if (url.data) {
+                                  setProofPreviewUrl(url.data.signedUrl);
+                                  setProofPreviewOpen(true);
+                                }
+                              }}
+                              className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                            >
+                              <Eye className="w-3.5 h-3.5" /> Ver
+                            </button>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                              r.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              r.status === 'approved' ? 'bg-green-100 text-green-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {r.status === 'pending' ? 'Pendiente' : r.status === 'approved' ? 'Aprobado' : 'Rechazado'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {r.status === 'pending' && (
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={async () => {
+                                    setActingOnProof(r.id);
+                                    await receiptAdminService.approveReceipt(r.id);
+                                    toast.success('Pago aprobado y producto enviado');
+                                    loadReceipts();
+                                    setActingOnProof(null);
+                                  }}
+                                  disabled={actingOnProof === r.id}
+                                  className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200 disabled:opacity-50"
+                                >
+                                  {actingOnProof === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Aprobar'}
+                                </button>
+                                <button
+                                  onClick={() => setRejectModal({ open: true, proofId: r.id })}
+                                  className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
+                                >
+                                  Rechazar
+                                </button>
+                              </div>
+                            )}
+                            {r.rejection_reason && (
+                              <div className="text-xs text-red-600 max-w-[200px] truncate" title={r.rejection_reason}>
+                                {r.rejection_reason}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {receipts.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="text-center py-8 text-gray-500">
+                          No hay comprobantes {receiptFilter === 'pending' ? 'pendientes' : receiptFilter === 'approved' ? 'aprobados' : 'rechazados'}.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Reject Modal */}
+            {rejectModal.open && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-xl max-w-md w-full p-6">
+                  <h3 className="font-bold text-[#1a2332] mb-2">Rechazar Comprobante</h3>
+                  <p className="text-sm text-gray-600 mb-4">El cliente recibira este motivo y podra subir un nuevo comprobante.</p>
+                  <textarea
+                    value={rejectReason}
+                    onChange={e => setRejectReason(e.target.value)}
+                    placeholder="Motivo del rechazo (visible para el cliente)..."
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    rows={3}
+                  />
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      onClick={async () => {
+                        if (!rejectReason.trim()) return;
+                        setActingOnProof(rejectModal.proofId);
+                        await receiptAdminService.rejectReceipt(rejectModal.proofId, rejectReason);
+                        toast.success('Comprobante rechazado. Cliente notificado.');
+                        setRejectModal({ open: false, proofId: '' });
+                        setRejectReason('');
+                        loadReceipts();
+                        setActingOnProof(null);
+                      }}
+                      disabled={actingOnProof === rejectModal.proofId || !rejectReason.trim()}
+                      className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                    >
+                      Rechazar
+                    </button>
+                    <button
+                      onClick={() => { setRejectModal({ open: false, proofId: '' }); setRejectReason(''); }}
+                      className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Proof Preview Modal */}
+            {proofPreviewOpen && proofPreviewUrl && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setProofPreviewOpen(false); setProofPreviewUrl(null); }}>
+                <div className="max-w-2xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                  <img src={proofPreviewUrl} alt="Comprobante" className="max-w-full max-h-[85vh] rounded-xl shadow-2xl" />
+                  <button
+                    onClick={() => { setProofPreviewOpen(false); setProofPreviewUrl(null); }}
+                    className="mt-2 text-white text-sm hover:underline"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {tab === 'banking' && (

@@ -1,12 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { digitalDeliveryService } from '@/lib/digitalDelivery';
-import { User, ShoppingBag, Download, LogOut, Package, Clock, Mail, ArrowRight } from 'lucide-react';
+import { receiptService } from '@/lib/receiptService';
+import FileUploader from '@/components/FileUploader';
+import { formatQ } from '@/lib/constructionData';
+import {
+  Package, Download, Clock, CheckCircle2, XCircle, AlertCircle,
+  ArrowLeft, RefreshCw, Eye, FileText, Key, ExternalLink,
+  Loader2, Ban
+} from 'lucide-react';
 import { toast } from 'sonner';
 
-interface CustomerOrder {
+interface Order {
   id: string;
+  customer_name: string;
+  customer_email: string;
   item_name: string;
   item_category: string;
   amount: number;
@@ -14,185 +23,247 @@ interface CustomerOrder {
   created_at: string;
 }
 
-const SESSION_KEY = 'construsmart_portal_session';
-
-interface PortalSession {
-  email: string;
-  name: string;
-  expiresAt: number;
+interface PaymentProof {
+  id: string;
+  order_id: string;
+  file_path: string;
+  file_type: string;
+  status: string;
+  rejection_reason: string | null;
+  created_at: string;
 }
 
+interface LicenseInfo {
+  license_key: string;
+  status: string;
+  expires_at: string;
+  max_activations: number;
+  activation_count: number;
+}
+
+interface DownloadLink {
+  url: string;
+  expiresAt: string;
+  maxDownloads: number;
+}
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  pending_payment:     { label: 'Pendiente de pago',     color: 'bg-yellow-100 text-yellow-800 border-yellow-200',     icon: Clock },
+  awaiting_validation:{ label: 'En verificacion',        color: 'bg-orange-100 text-orange-800 border-orange-200',    icon: AlertCircle },
+  paid:                { label: 'Pagado',                 color: 'bg-blue-100 text-blue-800 border-blue-200',          icon: CheckCircle2 },
+  delivered:           { label: 'Entregado',              color: 'bg-green-100 text-green-800 border-green-200',        icon: CheckCircle2 },
+  rejected:            { label: 'Comprobante rechazado',  color: 'bg-red-100 text-red-800 border-red-200',              icon: XCircle },
+  cancelled:           { label: 'Cancelado',              color: 'bg-gray-100 text-gray-800 border-gray-200',           icon: Ban },
+  failed:              { label: 'Fallido',                color: 'bg-red-100 text-red-800 border-red-200',              icon: XCircle },
+  refunded:            { label: 'Reembolsado',            color: 'bg-purple-100 text-purple-800 border-purple-200',    icon: RefreshCw },
+};
+
 const CustomerPortal: React.FC = () => {
-  const navigate = useNavigate();
-  const [step, setStep] = useState<'login' | 'orders'>('login');
   const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [orders, setOrders] = useState<CustomerOrder[]>([]);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
-  const [downloadLinks, setDownloadLinks] = useState<Record<string, string>>({});
+  const [sendingCode, setSendingCode] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [code, setCode] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [proofs, setProofs] = useState<Record<string, PaymentProof[]>>({});
+  const [proofUrls, setProofUrls] = useState<Record<string, string>>({});
+  const [delivering, setDelivering] = useState<string | null>(null);
+  const [licenseInfo, setLicenseInfo] = useState<Record<string, LicenseInfo>>({});
+  const [downloadLinks, setDownloadLinks] = useState<Record<string, DownloadLink>>({});
+  const [generatingLink, setGeneratingLink] = useState<string | null>(null);
 
-  useEffect(() => {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    if (raw) {
-      try {
-        const session: PortalSession = JSON.parse(raw);
-        if (session.expiresAt > Date.now()) {
-          setEmail(session.email);
-          setName(session.name);
-          loadOrders(session.email);
-          setStep('orders');
-        } else {
-          sessionStorage.removeItem(SESSION_KEY);
-        }
-      } catch {
-        sessionStorage.removeItem(SESSION_KEY);
-      }
+  const sendCode = async () => {
+    if (!email) return;
+    setSendingCode(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ email });
+      if (error) throw error;
+      setCodeSent(true);
+      toast.success('Codigo enviado a ' + email);
+    } catch (e: any) {
+      toast.error('Error: ' + e.message);
+    } finally {
+      setSendingCode(false);
     }
-  }, []);
+  };
 
-  const loadOrders = async (emailAddr: string) => {
+  const verifyCode = async () => {
+    if (!code || !email) return;
+    setVerifying(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
+      if (error) throw error;
+      setIsLoggedIn(true);
+      loadOrders();
+    } catch (e: any) {
+      toast.error('Codigo incorrecto: ' + e.message);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const loadOrders = async () => {
     setLoading(true);
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userEmail = userData?.user?.email || email;
+
       const { data, error } = await supabase
         .from('constructora_orders')
         .select('*')
-        .eq('customer_email', emailAddr)
+        .eq('customer_email', userEmail)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       setOrders(data || []);
-    } catch (error) {
-      console.error('Error loading orders:', error);
-      toast.error('Error al cargar tus pedidos');
+    } catch (e: any) {
+      console.error('Error loading orders:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogin = async () => {
-    if (!email || !email.includes('@')) {
-      toast.error('Ingresa un correo válido');
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadOrders();
+    }
+  }, [isLoggedIn]);
+
+  const toggleOrder = async (orderId: string) => {
+    if (expandedOrder === orderId) {
+      setExpandedOrder(null);
       return;
     }
-    setLoading(true);
+    setExpandedOrder(orderId);
 
-    try {
-      const { data, error } = await supabase
-        .from('constructora_orders')
-        .select('customer_name, customer_email')
-        .eq('customer_email', email)
-        .limit(1);
+    const proofsData = await receiptService.getReceipts(orderId);
+    setProofs(prev => ({ ...prev, [orderId]: proofsData }));
+    if (proofsData.length > 0) {
+      const url = await receiptService.getReceiptUrl(proofsData[0].file_path);
+      if (url) setProofUrls(prev => ({ ...prev, [proofsData[0].id]: url }));
+    }
 
-      if (error) throw error;
+    const { data: licenses } = await supabase
+      .from('product_licenses')
+      .select('*')
+      .eq('order_id', orderId);
+    if (licenses?.length) {
+      setLicenseInfo(prev => ({ ...prev, [orderId]: licenses[0] }));
+    }
 
-      if (!data || data.length === 0) {
-        const { data: leads } = await supabase
-          .from('constructora_leads')
-          .select('name')
-          .eq('email', email)
-          .limit(1);
-
-        if (!leads || leads.length === 0) {
-          toast.error('No encontramos pedidos con este correo. ¿Has realizado alguna compra?');
-          setLoading(false);
-          return;
+    const { data: dl } = await supabase
+      .from('download_links')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (dl?.length) {
+      setDownloadLinks(prev => ({
+        ...prev,
+        [orderId]: {
+          url: `${import.meta.env.VITE_APP_URL || 'http://localhost:8080'}/download/${dl[0].token}`,
+          expiresAt: dl[0].expires_at,
+          maxDownloads: dl[0].max_downloads,
         }
-      }
-
-      const customerName = data?.[0]?.customer_name || name || email.split('@')[0];
-
-      const session: PortalSession = {
-        email,
-        name: customerName,
-        expiresAt: Date.now() + 2 * 60 * 60 * 1000,
-      };
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-
-      setName(customerName);
-      await loadOrders(email);
-      setStep('orders');
-      toast.success(`Bienvenido, ${customerName}`);
-    } catch (error) {
-      console.error('Login error:', error);
-      toast.error('Error al verificar tu correo');
-    } finally {
-      setLoading(false);
+      }));
     }
   };
 
-  const handleDownload = useCallback(async (orderId: string, productName: string) => {
+  const handleUploadReceipt = async (orderId: string, file: File) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return { success: false, error: 'Orden no encontrada.' };
+    const result = await receiptService.uploadReceipt(orderId, order.customer_email, file);
+    if (result.success) {
+      toast.success('Comprobante subido exitosamente');
+      loadOrders();
+      const proofsData = await receiptService.getReceipts(orderId);
+      setProofs(prev => ({ ...prev, [orderId]: proofsData }));
+    }
+    return result;
+  };
+
+  const handleGenerateLink = async (orderId: string) => {
+    setGeneratingLink(orderId);
     try {
-      const downloadLink = await digitalDeliveryService.generateDownloadLink(orderId);
-      if (downloadLink) {
-        setDownloadLinks(prev => ({ ...prev, [orderId]: downloadLink.url }));
+      const link = await digitalDeliveryService.generateDownloadLink(orderId);
+      if (link) {
+        setDownloadLinks(prev => ({ ...prev, [orderId]: link }));
         toast.success('Enlace de descarga generado');
       } else {
-        toast.error('Error al generar enlace de descarga');
+        toast.error('Error al generar enlace');
       }
-    } catch (error) {
-      console.error('Error generating download link:', error);
-      toast.error('Error al generar enlace de descarga');
+    } catch {
+      toast.error('Error al generar enlace');
+    } finally {
+      setGeneratingLink(null);
     }
-  }, []);
-
-  const handleLogout = () => {
-    sessionStorage.removeItem(SESSION_KEY);
-    setStep('login');
-    setOrders([]);
-    setEmail('');
-    setName('');
-    toast.success('Sesión cerrada');
   };
 
-  if (step === 'login') {
+  if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-green-50 flex items-center justify-center px-4">
-        <div className="max-w-sm w-full">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
-            <div className="w-16 h-16 mx-auto bg-orange-100 rounded-full flex items-center justify-center mb-4">
-              <Package className="w-8 h-8 text-orange-600" />
-            </div>
-            <h1 className="text-2xl font-bold text-[#1a2332] mb-2">Portal de Clientes</h1>
-            <p className="text-gray-600 text-sm mb-6">
-              Ingresa tu correo para ver tus pedidos y descargas.
-            </p>
-            <div className="space-y-3 text-left">
-              <input
-                type="email"
-                placeholder="Tu correo electrónico"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3"
-                autoFocus
-              />
-              <button
-                onClick={handleLogin}
-                disabled={loading}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? 'Verificando...' : <><Mail className="w-5 h-5" /> Ingresar</>}
-              </button>
-            </div>
-            <p className="text-xs text-gray-500 mt-4">
-              Usamos el correo con el que realizaste tu compra. Sin contraseñas.
-            </p>
-            <Link to="/" className="block mt-4 text-sm text-orange-600 hover:text-orange-700">
-              Volver al sitio
-            </Link>
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-[#1a2332] text-white py-4">
+          <div className="max-w-md mx-auto px-4 flex items-center gap-3">
+            <Link to="/" className="text-white/80 hover:text-white"><ArrowLeft className="w-5 h-5" /></Link>
+            <span className="font-bold">Portal del Cliente</span>
           </div>
-        </div>
-      </div>
-    );
-  }
+        </header>
+        <main className="max-w-md mx-auto px-4 py-12">
+          <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+            <div className="text-center mb-6">
+              <Package className="w-12 h-12 text-orange-500 mx-auto mb-3" />
+              <h1 className="text-2xl font-bold text-[#1a2332]">Mis Pedidos</h1>
+              <p className="text-gray-600 text-sm mt-1">Ingresa tu correo para ver tus pedidos y descargas.</p>
+            </div>
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Cargando tus pedidos...</p>
-        </div>
+            {!codeSent ? (
+              <div className="space-y-4">
+                <input
+                  type="email"
+                  placeholder="Tu correo electronico"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                />
+                <button
+                  onClick={sendCode}
+                  disabled={sendingCode || !email}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-lg font-semibold disabled:opacity-50"
+                >
+                  {sendingCode ? 'Enviando...' : 'Enviar codigo de acceso'}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">Te enviamos un codigo a <strong>{email}</strong></p>
+                <input
+                  type="text"
+                  placeholder="Codigo de 6 digitos"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 text-center text-lg tracking-widest"
+                  value={code}
+                  onChange={e => setCode(e.target.value)}
+                  maxLength={6}
+                />
+                <button
+                  onClick={verifyCode}
+                  disabled={verifying || code.length < 6}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-lg font-semibold disabled:opacity-50"
+                >
+                  {verifying ? 'Verificando...' : 'Verificar codigo'}
+                </button>
+                <button
+                  onClick={() => { setCodeSent(false); setCode(''); }}
+                  className="w-full text-sm text-gray-500 hover:text-gray-700"
+                >
+                  Cambiar correo
+                </button>
+              </div>
+            )}
+          </div>
+        </main>
       </div>
     );
   }
@@ -200,146 +271,186 @@ const CustomerPortal: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-[#1a2332] text-white">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 text-white/80 hover:text-white">
-            <Package className="w-5 h-5" />
-            <span className="font-semibold">Portal de Clientes</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link
-              to="/referrals"
-              className="flex items-center gap-2 text-sm hover:text-orange-400 transition"
-            >
-              <ArrowRight className="w-4 h-4" />
-              Referidos
-            </Link>
-            <span className="text-sm text-white/70">{email}</span>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 text-sm hover:text-orange-400 transition"
-            >
-              <LogOut className="w-4 h-4" />
-              Salir
-            </button>
+        <div className="max-w-5xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link to="/" className="text-white/80 hover:text-white"><ArrowLeft className="w-5 h-5" /></Link>
+            <span className="font-bold">Portal del Cliente</span>
           </div>
+          <button
+            onClick={() => supabase.auth.signOut().then(() => { setIsLoggedIn(false); setOrders([]); })}
+            className="text-sm text-white/70 hover:text-white"
+          >
+            Cerrar sesion
+          </button>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 md:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#1a2332] mb-2">Mis Compras</h1>
-          <p className="text-gray-600">Gestiona tus productos digitales y descargas</p>
-        </div>
+      <main className="max-w-5xl mx-auto px-4 md:px-8 py-8">
+        <h1 className="text-2xl font-bold text-[#1a2332] mb-6">Mis Pedidos</h1>
 
-        <div className="grid sm:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <ShoppingBag className="w-5 h-5 text-blue-600" />
-              </div>
-              <span className="text-sm text-gray-600">Total Pedidos</span>
-            </div>
-            <div className="text-2xl font-bold text-[#1a2332]">{orders.length}</div>
+        {loading ? (
+          <div className="text-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <Package className="w-5 h-5 text-green-600" />
-              </div>
-              <span className="text-sm text-gray-600">Entregados</span>
-            </div>
-            <div className="text-2xl font-bold text-[#1a2332]">
-              {orders.filter(o => o.status === 'paid').length}
-            </div>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                <Clock className="w-5 h-5 text-orange-600" />
-              </div>
-              <span className="text-sm text-gray-600">Pendientes</span>
-            </div>
-            <div className="text-2xl font-bold text-[#1a2332]">
-              {orders.filter(o => o.status === 'pending').length}
-            </div>
-          </div>
-        </div>
-
-        {orders.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ShoppingBag className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No tienes compras aún</h3>
-            <p className="text-gray-600 mb-6">Explora nuestros productos digitales para comenzar</p>
-            <Link
-              to="/#productos"
-              className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold transition"
-            >
-              <Package className="w-5 h-5" />
-              Ver Productos
+        ) : orders.length === 0 ? (
+          <div className="text-center py-12">
+            <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">No tienes pedidos registrados con este correo.</p>
+            <Link to="/" className="inline-block mt-4 text-orange-600 hover:text-orange-700 font-semibold">
+              Ir a la tienda
             </Link>
           </div>
         ) : (
           <div className="space-y-4">
-            {orders.map(order => (
-              <div key={order.id} className="bg-white rounded-xl border border-gray-200 p-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Package className="w-6 h-6 text-orange-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-lg text-[#1a2332]">{order.item_name}</h3>
-                        <p className="text-sm text-gray-500">{order.item_category}</p>
-                        <div className="flex items-center gap-4 mt-2 text-sm">
-                          <span className="text-gray-600">
-                            Fecha: {new Date(order.created_at).toLocaleDateString('es-GT')}
-                          </span>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            order.status === 'paid'
-                              ? 'bg-green-100 text-green-700'
-                              : order.status === 'pending'
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-gray-100 text-gray-700'
-                          }`}>
-                            {order.status === 'paid' ? 'Pagado' : order.status}
-                          </span>
-                        </div>
+            {orders.map(order => {
+              const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending_payment;
+              const StatusIcon = cfg.icon;
+              const orderProofs = proofs[order.id] || [];
+              const latestProof = orderProofs[0];
+              const isExpanded = expandedOrder === order.id;
+
+              return (
+                <div key={order.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <button
+                    onClick={() => toggleOrder(order.id)}
+                    className="w-full p-4 text-left hover:bg-gray-50 transition flex items-center gap-4"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-[#1a2332] truncate">{order.item_name || 'Producto'}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {new Date(order.created_at).toLocaleDateString('es-GT', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      </p>
+                    </div>
+                    <div className={`px-3 py-1 rounded-full text-xs font-semibold border ${cfg.color}`}>
+                      <div className="flex items-center gap-1">
+                        <StatusIcon className="w-3.5 h-3.5" />
+                        <span>{cfg.label}</span>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {order.status === 'paid' && (
-                      <>
-                        {downloadLinks[order.id] ? (
-                          <a
-                            href={downloadLinks[order.id]}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition"
-                          >
-                            <Download className="w-4 h-4" />
-                            Descargar
-                          </a>
-                        ) : (
-                          <button
-                            onClick={() => handleDownload(order.id, order.item_name)}
-                            className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition"
-                          >
-                            <Download className="w-4 h-4" />
-                            Obtener Enlace
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
+                    <div className="text-lg font-bold text-orange-600">{formatQ(order.amount)}</div>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="border-t border-gray-100 p-4 space-y-4 bg-gray-50/50">
+                      {/* Pending payment: upload receipt */}
+                      {(order.status === 'pending_payment') && (
+                        <div>
+                          <h4 className="font-semibold text-sm text-[#1a2332] mb-2">Subir comprobante de pago</h4>
+                          <FileUploader
+                            onUpload={async (file) => handleUploadReceipt(order.id, file)}
+                          />
+                        </div>
+                      )}
+
+                      {/* Awaiting validation: show receipt preview */}
+                      {(order.status === 'awaiting_validation') && latestProof && (
+                        <div>
+                          <h4 className="font-semibold text-sm text-[#1a2332] mb-2">Comprobante enviado</h4>
+                          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                            <p className="text-sm text-orange-800">
+                              <AlertCircle className="w-4 h-4 inline mr-1" />
+                              Tu comprobante esta siendo revisado. Te notificaremos cuando sea aprobado.
+                            </p>
+                            {proofUrls[latestProof.id] && (
+                              <a
+                                href={proofUrls[latestProof.id]}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-orange-700 mt-2 hover:underline"
+                              >
+                                <Eye className="w-3.5 h-3.5" /> Ver comprobante
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Rejected: show reason + re-upload */}
+                      {(order.status === 'rejected') && (
+                        <div>
+                          {latestProof?.rejection_reason && (
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
+                              <p className="text-xs text-red-700 font-semibold">Motivo del rechazo:</p>
+                              <p className="text-sm text-red-800 mt-1">{latestProof.rejection_reason}</p>
+                            </div>
+                          )}
+                          <h4 className="font-semibold text-sm text-[#1a2332] mb-2">Subir nuevo comprobante</h4>
+                          <FileUploader
+                            onUpload={async (file) => handleUploadReceipt(order.id, file)}
+                          />
+                        </div>
+                      )}
+
+                      {/* Paid or Delivered: download */}
+                      {(order.status === 'paid' || order.status === 'delivered') && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {/* Download link */}
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <h4 className="font-semibold text-sm text-[#1a2332] mb-1">Descarga</h4>
+                            {downloadLinks[order.id] ? (
+                              <a
+                                href={downloadLinks[order.id].url}
+                                className="inline-flex items-center gap-1 text-sm text-blue-700 hover:underline"
+                              >
+                                <Download className="w-4 h-4" /> Descargar producto
+                              </a>
+                            ) : (
+                              <button
+                                onClick={() => handleGenerateLink(order.id)}
+                                disabled={generatingLink === order.id}
+                                className="inline-flex items-center gap-1 text-sm text-blue-700 hover:underline disabled:opacity-50"
+                              >
+                                {generatingLink === order.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Download className="w-4 h-4" />
+                                )}
+                                Obtener enlace de descarga
+                              </button>
+                            )}
+                            {downloadLinks[order.id] && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Expira: {new Date(downloadLinks[order.id].expiresAt).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* License key */}
+                          {licenseInfo[order.id] && (
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                              <h4 className="font-semibold text-sm text-[#1a2332] mb-1 flex items-center gap-1">
+                                <Key className="w-4 h-4 text-green-600" /> Licencia
+                              </h4>
+                              <div className="bg-white border border-green-300 rounded px-2 py-1 font-mono text-xs text-green-900 select-all">
+                                {licenseInfo[order.id].license_key}
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Activaciones: {licenseInfo[order.id].activation_count}/{licenseInfo[order.id].max_activations}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Order details */}
+                      <div className="text-xs text-gray-500 space-y-1">
+                        <p>Orden: #{order.id.slice(0, 8)}</p>
+                        <p>Categoria: {order.item_category}</p>
+                        <p>Monto: {formatQ(order.amount)}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
+
+        <div className="mt-8 text-center">
+          <Link to="/" className="text-sm text-orange-600 hover:text-orange-700 font-semibold">
+            ← Volver a la tienda
+          </Link>
+        </div>
       </main>
     </div>
   );

@@ -1,5 +1,28 @@
 import { supabase } from './supabase';
 
+const PRODUCT_FILE_MAP: Record<string, string> = {
+  'PLANO001': 'planos/PLANO01.pdf',
+  'PLANO02': 'planos/PLANO02.pdf',
+  'PLANO03': 'planos/PLANO03.pdf',
+  'DISENO01': 'disenos/DISENO01.zip',
+  'SOFTWARE01': 'software/SOFTWARE01.zip',
+};
+
+function getDefaultStoragePath(productId: string): string | null {
+  const upperId = productId.toUpperCase();
+  for (const [key, path] of Object.entries(PRODUCT_FILE_MAP)) {
+    if (upperId.includes(key)) return path;
+  }
+  return null;
+}
+
+function generateLicenseKey(productCode: string): string {
+  const prefix = 'CGT';
+  const code = productCode.substring(0, 6).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const hex = Array.from({ length: 8 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
+  return `${prefix}-${code || 'GEN'}-${hex}`;
+}
+
 interface DownloadLink {
   url: string;
   expiresAt: string;
@@ -206,6 +229,94 @@ class DigitalDeliveryService {
     }
   }
 
+  // Procesar entrega completa para una orden pagada
+  async processOrderDelivery(orderId: string): Promise<{ success: boolean; error?: string; licenseKey?: string; downloadToken?: string }> {
+    try {
+      const { data: order, error: orderError } = await supabase
+        .from('constructora_orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (orderError || !order) {
+        return { success: false, error: 'Orden no encontrada.' };
+      }
+
+      const category = order.item_category || '';
+      const isSoftware = category.toLowerCase() === 'software';
+      const isDiseno = category.toLowerCase() === 'diseño' || category.toLowerCase() === 'diseno';
+
+      const storagePath = getDefaultStoragePath(order.item_name || order.id);
+      if (!storagePath && (isSoftware || isDiseno)) {
+        return { success: false, error: 'No hay archivo de producto configurado para: ' + (order.item_name || order.id) };
+      }
+
+      let licenseKey: string | null = null;
+      if (isSoftware) {
+        licenseKey = generateLicenseKey(order.item_name || order.id);
+        const { error: licError } = await supabase.from('product_licenses').insert({
+          order_id: orderId,
+          product_id: order.item_name || order.id,
+          license_key: licenseKey,
+          created_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          max_activations: 3,
+          activations_count: 0,
+        });
+        if (licError) {
+          return { success: false, error: 'Error al generar licencia: ' + licError.message };
+        }
+      }
+
+      const token = Array.from({ length: 32 }, () => Math.random().toString(36)[2]).join('');
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { error: dlError } = await supabase.from('download_links').insert({
+        order_id: orderId,
+        token,
+        expires_at: expiresAt,
+        max_downloads: 5,
+        downloads_count: 0,
+        file_storage_path: storagePath,
+      });
+      if (dlError) {
+        return { success: false, error: 'Error al crear enlace de descarga: ' + dlError.message };
+      }
+
+      const { error: delError } = await supabase.from('product_deliveries').insert({
+        order_id: orderId,
+        customer_id: order.customer_email,
+        product_id: order.item_name || order.id,
+        product_name: order.item_name || 'Producto',
+        customer_email: order.customer_email,
+        customer_name: order.customer_name || '',
+        delivery_status: 'delivered',
+        download_link: `${import.meta.env.VITE_APP_URL || 'http://localhost:8080'}/download/${token}`,
+        delivered_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      });
+      if (delError) {
+        return { success: false, error: 'Error al registrar entrega: ' + delError.message };
+      }
+
+      const { error: statusError } = await supabase
+        .from('constructora_orders')
+        .update({ status: 'delivered' })
+        .eq('id', orderId);
+      if (statusError) {
+        return { success: false, error: 'Error al actualizar estado: ' + statusError.message };
+      }
+
+      return {
+        success: true,
+        licenseKey: licenseKey || undefined,
+        downloadToken: token,
+      };
+    } catch (e: any) {
+      return { success: false, error: e.message || 'Error inesperado.' };
+    }
+  }
+
   // Generar token de descarga
   private generateDownloadToken(orderId: string): string {
     const timestamp = Date.now();
@@ -215,27 +326,15 @@ class DigitalDeliveryService {
 
   // Generar clave de licencia
   private generateLicenseKey(productId: string): string {
-    // Generar una clave de licencia profesional
     const segments = [];
-    
-    // Segmento 1: Prefijo del producto
     segments.push('CSGT');
-    
-    // Segmento 2: ID del producto codificado
     const productCode = productId.substring(0, 4).toUpperCase();
     segments.push(productCode);
-    
-    // Segmento 3: Random
     segments.push(Math.random().toString(36).substring(2, 8).toUpperCase());
-    
-    // Segmento 4: Timestamp codificado
     const timeCode = Date.now().toString(36).toUpperCase().substring(0, 4);
     segments.push(timeCode);
-    
-    // Segmento 5: Checksum simple
     const checksum = segments.join('').split('').reduce((a, b) => a + b.charCodeAt(0), 0) % 1000;
     segments.push(checksum.toString().padStart(3, '0'));
-
     return segments.join('-');
   }
 }

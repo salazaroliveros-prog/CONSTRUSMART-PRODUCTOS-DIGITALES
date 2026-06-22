@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { formatQ } from '@/lib/constructionData';
 import { bankingService } from '@/lib/bankingService';
-import { ArrowLeft, Lock, ShieldCheck, CheckCircle2, Building2, Copy, AlertCircle, Package } from 'lucide-react';
+import { receiptService } from '@/lib/receiptService';
+import FileUploader from '@/components/FileUploader';
+import { ArrowLeft, Lock, ShieldCheck, CheckCircle2, Building2, Copy, AlertCircle, Package, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface CheckoutItem {
@@ -178,6 +180,21 @@ const Checkout: React.FC = () => {
                 <strong>Paso 3:</strong> Recibirás acceso en máximas 24 horas hábiles
               </div>
             </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-4 mb-4">
+            <h3 className="font-semibold text-[#1a2332] mb-3 flex items-center gap-2">
+              <Upload className="w-4 h-4 text-orange-500" /> Sube tu comprobante de pago
+            </h3>
+            <p className="text-xs text-gray-500 mb-3">
+              Sube el comprobante de la transferencia para acelerar la verificacion.
+            </p>
+            <FileUploader
+              onUpload={async (file) => {
+                const result = await receiptService.uploadReceipt(orderIds[0], customer.email, file);
+                return result;
+              }}
+            />
           </div>
 
           <Link
