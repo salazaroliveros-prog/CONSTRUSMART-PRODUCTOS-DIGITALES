@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, X, HardHat } from 'lucide-react';
+import { Menu, X, HardHat, Moon, Sun } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import CartButton from '@/components/CartButton';
 
 const Header: React.FC<{ onNavigate?: (id: string) => void }> = ({ onNavigate }) => {
   const [open, setOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  React.useEffect(() => setMounted(true), []);
 
   const links = [
     { id: 'inicio', label: 'Inicio' },
@@ -46,6 +50,15 @@ const Header: React.FC<{ onNavigate?: (id: string) => void }> = ({ onNavigate })
           ))}
           <CartButton />
           <Link to="/admin" className="text-white/50 hover:text-white text-xs">Admin</Link>
+          {mounted && (
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="text-white/70 hover:text-orange-400 transition p-1.5 rounded-lg hover:bg-white/10"
+              aria-label="Cambiar tema"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+          )}
           <button
             onClick={() => handleClick('contacto')}
             className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition"
@@ -72,6 +85,15 @@ const Header: React.FC<{ onNavigate?: (id: string) => void }> = ({ onNavigate })
           ))}
           <CartButton />
           <Link to="/admin" className="block text-white/60 py-2 text-sm">Panel Admin</Link>
+          {mounted && (
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="flex items-center gap-2 text-white/70 py-2 text-sm hover:text-orange-400"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+            </button>
+          )}
           <button
             onClick={() => handleClick('contacto')}
             className="w-full bg-orange-500 text-white px-4 py-3 rounded-lg font-semibold"

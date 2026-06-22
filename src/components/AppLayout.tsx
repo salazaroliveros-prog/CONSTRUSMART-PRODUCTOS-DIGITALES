@@ -9,10 +9,16 @@ import TestimonialsSection from './TestimonialsSection';
 import ContactSection from './ContactSection';
 import Footer from './Footer';
 import WhatsAppButton from './WhatsAppButton';
+import ScrollToTop from './ScrollToTop';
+import SEO from './SEO';
 
 const AppLayout: React.FC = () => {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-[#0f172a] transition-colors">
+      <SEO 
+        title="ConstructoraGT - Soluciones Digitales para la Construcción en Guatemala"
+        description="Productos digitales, software y servicios profesionales para la industria de la construcción en Guatemala. Calcula costos, cotiza proyectos y adquiere herramientas digitales."
+      />
       <Header />
       <main>
         <Hero />
@@ -25,6 +31,7 @@ const AppLayout: React.FC = () => {
       </main>
       <Footer />
       <WhatsAppButton />
+      <ScrollToTop />
     </div>
   );
 };
