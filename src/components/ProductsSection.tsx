@@ -10,6 +10,7 @@ import { productPurchaseSchema } from '@/lib/validation';
 import ProductReviews from '@/components/ProductReviews';
 import { promoCodeService } from '@/lib/promoCodeService';
 import ProductComparison from '@/components/ProductComparison';
+import { internalCrm } from '@/lib/internalCrm';
 import { ProductGridSkeleton } from '@/components/Skeletons';
 
 const PRODUCT_RATINGS: Record<string, { avg: number; count: number }> = {
@@ -146,20 +147,16 @@ const ProductsSection: React.FC = () => {
       })
     );
 
-    // CRM notification (non-blocking, env-configurable)
-    const crmUrl = import.meta.env.VITE_CRM_WEBHOOK_URL;
-    if (crmUrl) {
-      fetch(crmUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: form.email,
-          name: form.name,
-          source: 'checkout-started',
-          tags: ['checkout', selected.category.toLowerCase()],
-        }),
-      }).catch(() => {});
-    }
+    // Internal CRM: create lead for checkout start
+    internalCrm.createLead({
+      type: 'checkout',
+      customer_name: form.name,
+      customer_email: form.email,
+      customer_phone: form.phone,
+      source: 'products-section',
+      details: `Interesado en: ${selected.name} (${selected.category})`,
+      value: finalPrice,
+    });
 
     navigate('/checkout');
   };

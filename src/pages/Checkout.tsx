@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { formatQ } from '@/lib/constructionData';
 import { bankingService } from '@/lib/bankingService';
 import { receiptService } from '@/lib/receiptService';
+import { internalCrm } from '@/lib/internalCrm';
 import FileUploader from '@/components/FileUploader';
 import { ArrowLeft, Lock, ShieldCheck, CheckCircle2, Building2, Copy, AlertCircle, Package, Upload } from 'lucide-react';
 import { toast } from 'sonner';
@@ -111,22 +112,16 @@ const Checkout: React.FC = () => {
       setOrderIds(createdIds);
       setPaymentConfirmed(true);
 
-      // CRM notification (non-blocking, env-configurable)
-      const crmUrl = import.meta.env.VITE_CRM_WEBHOOK_URL;
-      if (crmUrl) {
-        fetch(crmUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: customer.email,
-            name: customer.name,
-            source: 'checkout-initiated',
-            tags: ['cliente-pendiente', ...items.map(i => i.category.toLowerCase())],
-          }),
-        }).catch(() => {
-          console.warn('CRM webhook non-bloqueante falló');
-        });
-      }
+      // Internal CRM: create lead + schedule follow-up
+      internalCrm.createLead({
+        type: 'checkout',
+        customer_name: customer.name,
+        customer_email: customer.email,
+        customer_phone: customer.phone,
+        source: 'checkout',
+        details: `Productos: ${items.map(i => i.name).join(', ')} — Total: Q${totalAmount}`,
+        value: totalAmount,
+      });
 
       sessionStorage.removeItem('checkout_items');
       sessionStorage.removeItem('checkout_item');

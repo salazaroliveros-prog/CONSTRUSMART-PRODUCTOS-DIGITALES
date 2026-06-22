@@ -48,7 +48,11 @@ class EmailService {
   // Enviar email usando Supabase Email
   async sendEmail(template: EmailTemplate): Promise<boolean> {
     try {
-      const response = await fetch('https://hwxsxhtkmngtwbewamed.databasepad.com/functions/v1/send-email', {
+      // Use the deployed Supabase Edge Function for secure email sending
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const functionUrl = `${supabaseUrl}/functions/v1/send-email`;
+      
+      const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -61,10 +65,8 @@ class EmailService {
         throw new Error(`Email send failed: ${response.statusText}`);
       }
 
-      console.log('Email sent successfully to:', template.to);
       return true;
     } catch (error) {
-      console.error('Error sending email:', error);
       // Fallback: Simular envío exitoso en desarrollo
       if (import.meta.env.DEV) {
         console.log('[DEV MODE] Email would be sent:', template);

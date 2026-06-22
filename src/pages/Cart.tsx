@@ -6,6 +6,7 @@ import { formatQ } from '@/lib/constructionData';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { internalCrm } from '@/lib/internalCrm';
 
 const RECOVERY_EMAIL_KEY = 'construsmart_recovery_email';
 const RECOVERY_SENT_KEY = 'construsmart_recovery_sent';
@@ -34,19 +35,14 @@ const Cart: React.FC = () => {
         message: `Carrito abandonado: ${cart.items.map(i => `${i.name}×${i.quantity}`).join(', ')} — Total: Q${cart.total}`,
       });
 
-      const crmUrl = import.meta.env.VITE_CRM_WEBHOOK_URL;
-      if (crmUrl) {
-        fetch(crmUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: recoveryEmail,
-            name: '',
-            source: 'abandoned-cart',
-            tags: ['carrito-abandonado'],
-          }),
-        }).catch(() => {});
-      }
+      internalCrm.createLead({
+        type: 'abandoned_cart',
+        customer_name: '',
+        customer_email: recoveryEmail,
+        source: 'abandoned-cart',
+        details: `Carrito: ${cart.items.map(i => `${i.name}×${i.quantity}`).join(', ')} — Total: Q${cart.total}`,
+        value: cart.total,
+      });
 
       localStorage.setItem(RECOVERY_SENT_KEY, 'true');
       toast.success('Te notificaremos cuando haya ofertas especiales para tu carrito.');
