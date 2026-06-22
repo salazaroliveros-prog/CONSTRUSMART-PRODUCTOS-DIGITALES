@@ -17,6 +17,7 @@ const Login = lazy(() => import("./pages/Login"));
 const Unauthorized = lazy(() => import("./pages/Unauthorized"));
 const CustomerPortal = lazy(() => import("./pages/CustomerPortal"));
 const ReferralProgram = lazy(() => import("./pages/ReferralProgram"));
+const MyLicenses = lazy(() => import("./pages/MyLicenses"));
 const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -51,6 +52,7 @@ const AppRouter = () => {
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/portal" element={<CustomerPortal />} />
         <Route path="/referrals" element={<ReferralProgram />} />
+        <Route path="/licenses" element={<MyLicenses />} />
         <Route path="/login" element={<Login />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
         <Route 
