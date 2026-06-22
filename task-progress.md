@@ -3,7 +3,7 @@
 ## 🔴 CRÍTICAS
 - [x] 1. Eliminar Stripe muerto (functions + dependencia)
 - [ ] 2. Migrar emailService.ts a Edge Function segura + limpiar frontend
-- [x] 3. CRM hardcodeado → env var + try/catch + fallback
+- [x] 3. CRM hardcodeado → env var + try/catch + fallback  
 - [x] 4. Rate limiting en OTP del portal cliente
 - [x] 5. Configurar manualChunks en vite.config.ts
 
@@ -18,8 +18,8 @@
 
 ## 🟢 MEDIAS
 - [ ] 13. Página "Mis Licencias" dedicada
-- [ ] 14. Toggle modo oscuro funcional
-- [ ] 15. SEO por página (Open Graph)
+- [x] 14. Toggle modo oscuro funcional
+- [x] 15. SEO por página (Open Graph)
 - [ ] 16. Skeletons y estados vacíos con ilustraciones
 - [ ] 17. i18n preparación
 - [ ] 18. Caching con React Query para productos
@@ -29,7 +29,7 @@
 ## 🔵 BAJAS
 - [x] 21. Limpiar shadcn/ui no utilizados
 - [ ] 22. Email de bienvenida
-- [ ] 23. Botón "Volver arriba" flotante
+- [x] 23. Botón "Volver arriba" flotante
 - [ ] 24. Cron job de limpieza
 - [ ] 25. Tests unitarios y E2E
 - [ ] 26. Logging centralizado

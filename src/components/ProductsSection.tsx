@@ -44,6 +44,7 @@ const ProductsSection: React.FC = () => {
   const [selected, setSelected] = useState<typeof DIGITAL_PRODUCTS[0] | null>(null);
   const [form, setForm] = useState({ name: '', email: '', phone: '', promoCode: '' });
   const [filter, setFilter] = useState<'all' | 'Software' | 'Diseño'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [discount, setDiscount] = useState(0);
   const [showComparison, setShowComparison] = useState(false);
   
@@ -70,7 +71,14 @@ const ProductsSection: React.FC = () => {
     });
   }, []);
 
-  const filtered = filter === 'all' ? products : products.filter(p => p.category === filter);
+  const filtered = products.filter(p => {
+    const matchesFilter = filter === 'all' || p.category === filter;
+    const matchesSearch = !searchQuery.trim() || 
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.features.some(f => f.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesFilter && matchesSearch;
+  });
 
   const handleApplyPromoCode = async () => {
     if (!form.promoCode.trim()) {
@@ -126,17 +134,20 @@ const ProductsSection: React.FC = () => {
       })
     );
 
-    // Pre-subscribe to CRM as a lead (not yet paid)
-    fetch('https://famous.ai/api/crm/6a1093dc76aee1f11d76c7cd/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: form.email,
-        name: form.name,
-        source: 'checkout-started',
-        tags: ['checkout', selected.category.toLowerCase()],
-      }),
-    }).catch(() => {});
+    // CRM notification (non-blocking, env-configurable)
+    const crmUrl = import.meta.env.VITE_CRM_WEBHOOK_URL;
+    if (crmUrl) {
+      fetch(crmUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: form.email,
+          name: form.name,
+          source: 'checkout-started',
+          tags: ['checkout', selected.category.toLowerCase()],
+        }),
+      }).catch(() => {});
+    }
 
     navigate('/checkout');
   };
@@ -157,7 +168,7 @@ const ProductsSection: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-3 mb-10">
+        <div className="flex flex-wrap justify-center gap-3 mb-6">
           {[
             { id: 'all', label: 'Todos', icon: ShoppingBag },
             { id: 'Software', label: 'Software', icon: Smartphone },
@@ -183,6 +194,16 @@ const ProductsSection: React.FC = () => {
             <BarChart3 className="w-4 h-4" />
             Comparar
           </button>
+        </div>
+        
+        <div className="max-w-md mx-auto mb-10">
+          <input
+            type="text"
+            placeholder="Buscar productos por nombre, descripción o características..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+          />
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
