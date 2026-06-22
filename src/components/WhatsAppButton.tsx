@@ -1,10 +1,22 @@
 import React from 'react';
-import { MessageCircle, X } from 'lucide-react';
+import { MessageCircle, X, ShoppingBag, HelpCircle, Phone } from 'lucide-react';
 
-const PHONE_NUMBER = '50255551234';
+const PHONE_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || '50240601526';
 const DEFAULT_MESSAGE = 'Hola, estoy interesado en los productos y servicios de ConstructoraGT. ¿Podrían ayudarme?';
 
-const whatsappUrl = `https://wa.me/${PHONE_NUMBER}?text=${encodeURIComponent(DEFAULT_MESSAGE)}`;
+const whatasappUrl = (msg: string) => `https://wa.me/${PHONE_NUMBER}?text=${encodeURIComponent(msg)}`;
+
+interface QuickAction {
+  label: string;
+  message: string;
+  icon: React.ElementType;
+}
+
+const QUICK_ACTIONS: QuickAction[] = [
+  { label: 'Comprar producto', message: 'Hola, quiero comprar un producto digital. ¿Cómo puedo adquirirlo?', icon: ShoppingBag },
+  { label: 'Cotizar proyecto', message: 'Hola, quiero una cotización para mi proyecto de construcción.', icon: HelpCircle },
+  { label: 'Soporte técnico', message: 'Hola, necesito ayuda con un producto que compré.', icon: Phone },
+];
 
 const WhatsAppButton: React.FC = () => {
   const [expanded, setExpanded] = React.useState(false);
@@ -16,14 +28,29 @@ const WhatsAppButton: React.FC = () => {
           <p className="text-sm text-gray-700 font-medium mb-2">
             ¡Hola! ¿En qué podemos ayudarte?
           </p>
+          <div className="space-y-2 mb-3">
+            <p className="text-xs text-gray-500 font-medium">¿Qué necesitas?</p>
+            {QUICK_ACTIONS.map((action, i) => (
+              <a
+                key={i}
+                href={whatasappUrl(action.message)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-700 hover:bg-gray-50 transition w-full"
+              >
+                <action.icon className="w-4 h-4 text-orange-500" />
+                {action.label}
+              </a>
+            ))}
+          </div>
           <a
-            href={whatsappUrl}
+            href={whatasappUrl(DEFAULT_MESSAGE)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition w-full justify-center"
           >
             <MessageCircle className="w-5 h-5" />
-            Abrir WhatsApp
+            Mensaje directo
           </a>
           <p className="text-xs text-gray-400 mt-2 text-center">
             Respuesta en menos de 24 horas
