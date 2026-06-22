@@ -3,6 +3,7 @@ import Header from './Header';
 import Hero from './Hero';
 import ProductsSection from './ProductsSection';
 import ServicesSection from './ServicesSection';
+import PortfolioSection from './PortfolioSection';
 import Calculator from './Calculator';
 import TestimonialsSection from './TestimonialsSection';
 import ContactSection from './ContactSection';
@@ -17,6 +18,7 @@ const AppLayout: React.FC = () => {
         <Hero />
         <ProductsSection />
         <ServicesSection />
+        <PortfolioSection />
         <Calculator />
         <TestimonialsSection />
         <ContactSection />

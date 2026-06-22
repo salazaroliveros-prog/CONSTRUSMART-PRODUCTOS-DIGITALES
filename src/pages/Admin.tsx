@@ -5,15 +5,17 @@ import { supabase } from '@/lib/supabase';
 import { formatQ } from '@/lib/constructionData';
 import { bankingService } from '@/lib/bankingService';
 import { receiptAdminService } from '@/lib/receiptAdminService';
+import { productService } from '@/lib/productService';
+import { portfolioService } from '@/lib/portfolioService';
 import { toast } from 'sonner';
 import {
   LayoutDashboard, ShoppingCart, Calculator, HardHat, ArrowLeft,
   TrendingUp, Users, DollarSign, Package, RefreshCw, LogOut, Building2,
   Plus, Edit2, Trash2, CreditCard, Shield, FileText, CheckCircle2,
-  XCircle, Eye, AlertCircle, Loader2,
+  XCircle, Eye, AlertCircle, Loader2, Upload, Box, Briefcase, Image,
 } from 'lucide-react';
 
-type Tab = 'overview' | 'orders' | 'quotes' | 'services' | 'leads' | 'banking' | 'receipts';
+type Tab = 'overview' | 'orders' | 'quotes' | 'services' | 'leads' | 'banking' | 'receipts' | 'products' | 'portfolio';
 
 const Admin: React.FC = () => {
   const { logout, user } = useAuth();
@@ -31,6 +33,29 @@ const Admin: React.FC = () => {
   const [proofPreviewUrl, setProofPreviewUrl] = useState<string | null>(null);
   const [proofPreviewOpen, setProofPreviewOpen] = useState(false);
   const [actingOnProof, setActingOnProof] = useState<string | null>(null);
+  const [products, setProducts] = useState<any[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [portfolioProjects, setPortfolioProjects] = useState<any[]>([]);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
+  const [showPortfolioModal, setShowPortfolioModal] = useState(false);
+  const [editingPortfolio, setEditingPortfolio] = useState<any>(null);
+  const [productForm, setProductForm] = useState({
+    code: '', name: '', category: 'Software', price: 0,
+    description: '', features: [] as string[], image_url: '',
+    badge: '', file_storage_path: '', is_active: true, sort_order: 0,
+  });
+  const [featureInput, setFeatureInput] = useState('');
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [savingProduct, setSavingProduct] = useState(false);
+  const [portFolioForm, setPortFolioForm] = useState({
+    title: '', description: '', category: '', location: '', client_name: '',
+    completion_date: '', is_featured: false, sort_order: 0,
+  });
+  const [portfolioImages, setPortfolioImages] = useState<{ id?: string; url: string; caption: string }[]>([]);
+  const [savingPortfolio, setSavingPortfolio] = useState(false);
+  const [uploadingPortfolioImage, setUploadingPortfolioImage] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const loadReceipts = async (statusFilter?: string) => {
@@ -40,6 +65,20 @@ const Admin: React.FC = () => {
     ]);
     setReceipts(list);
     setReceiptStats(stats);
+  };
+
+  const loadPortfolio = async () => {
+    setPortfolioLoading(true);
+    const data = await portfolioService.getAllProjects();
+    setPortfolioProjects(data);
+    setPortfolioLoading(false);
+  };
+
+  const loadProducts = async () => {
+    setProductsLoading(true);
+    const records = await productService.getAllProducts();
+    setProducts(records);
+    setProductsLoading(false);
   };
 
   const loadAll = async () => {
@@ -57,6 +96,8 @@ const Admin: React.FC = () => {
     setLeads(l.data || []);
     setBankingInfo(b || []);
     loadReceipts();
+    loadProducts();
+    loadPortfolio();
     setLoading(false);
   };
 
@@ -114,6 +155,8 @@ const Admin: React.FC = () => {
             { id: 'services', label: `Servicios (${services.length})`, icon: HardHat },
             { id: 'leads', label: `Leads (${leads.length})`, icon: Users },
             { id: 'receipts', label: `Comprobantes${receiptStats.pending > 0 ? ` (${receiptStats.pending})` : ''}`, icon: FileText },
+            { id: 'products', label: `Productos (${products.length})`, icon: Box },
+            { id: 'portfolio', label: `Portfolio (${portfolioProjects.length})`, icon: Briefcase },
             { id: 'banking', label: 'Datos Bancarios', icon: Building2 },
           ].map(t => (
             <button
@@ -460,6 +503,635 @@ const Admin: React.FC = () => {
           </div>
         )}
 
+        {tab === 'products' && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-[#1a2332] flex items-center gap-2">
+                <Box className="w-5 h-5 text-orange-500" /> Productos Digitales
+              </h2>
+              <button
+                onClick={() => {
+                  setEditingProduct(null);
+                  setProductForm({
+                    code: '', name: '', category: 'Software', price: 0,
+                    description: '', features: [], image_url: '',
+                    badge: '', file_storage_path: '', is_active: true, sort_order: products.length + 1,
+                  });
+                  setFeatureInput('');
+                  setShowProductModal(true);
+                }}
+                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" /> Agregar Producto
+              </button>
+            </div>
+
+            {productsLoading && products.length === 0 ? (
+              <div className="text-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700">Producto</th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700">Categoria</th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700">Precio</th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700">Archivo</th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700">Estado</th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700">Orden</th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700">Accion</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {products.map(p => (
+                        <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div className="font-medium">{p.name}</div>
+                            <div className="text-xs text-gray-500 font-mono">{p.code}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${
+                              p.category === 'Software' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                            }`}>{p.category}</span>
+                          </td>
+                          <td className="px-4 py-3 font-bold text-orange-600">{p.price_label || formatQ(Number(p.price))}</td>
+                          <td className="px-4 py-3">
+                            {p.file_storage_path ? (
+                              <span className="text-xs text-green-600 flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" /> Subido
+                              </span>
+                            ) : (
+                              <span className="text-xs text-yellow-600">Sin archivo</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={async () => {
+                                await productService.toggleActive(p.id, !p.is_active);
+                                loadProducts();
+                                toast.success(p.is_active ? 'Producto desactivado' : 'Producto activado');
+                              }}
+                              className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                p.is_active
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-gray-100 text-gray-500'
+                              }`}
+                            >
+                              {p.is_active ? 'Activo' : 'Inactivo'}
+                            </button>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-gray-500">{p.sort_order}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => {
+                                  setEditingProduct(p);
+                                  setProductForm({
+                                    code: p.code,
+                                    name: p.name,
+                                    category: p.category,
+                                    price: Number(p.price),
+                                    description: p.description,
+                                    features: Array.isArray(p.features) ? [...p.features] : [],
+                                    image_url: p.image_url || '',
+                                    badge: p.badge || '',
+                                    file_storage_path: p.file_storage_path || '',
+                                    is_active: p.is_active,
+                                    sort_order: p.sort_order,
+                                  });
+                                  setFeatureInput('');
+                                  setShowProductModal(true);
+                                }}
+                                className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200"
+                              >
+                                <Edit2 className="w-3 h-3 inline mr-0.5" /> Editar
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (!confirm(`Eliminar "${p.name}"? Esta accion no se puede deshacer.`)) return;
+                                  const result = await productService.deleteProduct(p.id);
+                                  if (result.success) {
+                                    toast.success('Producto eliminado');
+                                    loadProducts();
+                                  } else {
+                                    toast.error(result.error || 'Error al eliminar');
+                                  }
+                                }}
+                                className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
+                              >
+                                <Trash2 className="w-3 h-3 inline mr-0.5" /> Eliminar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {products.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="text-center py-8 text-gray-500">
+                            No hay productos. Agrega tu primer producto.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Product Add/Edit Modal */}
+            {showProductModal && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-[#1a2332]">
+                      {editingProduct ? `Editar: ${editingProduct.name}` : 'Nuevo Producto'}
+                    </h3>
+                    <button
+                      onClick={() => setShowProductModal(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <XCircle className="w-6 h-6" />
+                    </button>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Codigo *</label>
+                      <input
+                        type="text"
+                        value={productForm.code}
+                        onChange={e => setProductForm({ ...productForm, code: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        placeholder="ej: app-calculo"
+                        disabled={!!editingProduct}
+                        required
+                      />
+                      <p className="text-xs text-gray-400 mt-0.5">Identificador unico (no se puede cambiar despues de crear)</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                      <input
+                        type="text"
+                        value={productForm.name}
+                        onChange={e => setProductForm({ ...productForm, name: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        placeholder="App Calculo y Presupuesto"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                      <select
+                        value={productForm.category}
+                        onChange={e => setProductForm({ ...productForm, category: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      >
+                        <option value="Software">Software</option>
+                        <option value="Diseno">Diseno</option>
+                        <option value="Servicio">Servicio</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Precio (GTQ) *</label>
+                      <input
+                        type="number"
+                        value={productForm.price || ''}
+                        onChange={e => setProductForm({ ...productForm, price: Number(e.target.value) })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        min={0}
+                        required
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Descripcion</label>
+                      <textarea
+                        value={productForm.description}
+                        onChange={e => setProductForm({ ...productForm, description: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        rows={3}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Caracteristicas</label>
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={featureInput}
+                          onChange={e => setFeatureInput(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (featureInput.trim()) {
+                                setProductForm({
+                                  ...productForm,
+                                  features: [...productForm.features, featureInput.trim()],
+                                });
+                                setFeatureInput('');
+                              }
+                            }
+                          }}
+                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                          placeholder="Escribe una caracteristica y presiona Enter"
+                        />
+                        <button
+                          onClick={() => {
+                            if (featureInput.trim()) {
+                              setProductForm({
+                                ...productForm,
+                                features: [...productForm.features, featureInput.trim()],
+                              });
+                              setFeatureInput('');
+                            }
+                          }}
+                          className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {productForm.features.map((f, i) => (
+                          <span key={i} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-lg text-xs">
+                            {f}
+                            <button
+                              onClick={() => {
+                                const updated = [...productForm.features];
+                                updated.splice(i, 1);
+                                setProductForm({ ...productForm, features: updated });
+                              }}
+                              className="hover:text-red-500"
+                            >
+                              <XCircle className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">URL de Imagen</label>
+                      <input
+                        type="text"
+                        value={productForm.image_url}
+                        onChange={e => setProductForm({ ...productForm, image_url: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        placeholder="https://..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Badge / Etiqueta</label>
+                      <select
+                        value={productForm.badge}
+                        onChange={e => setProductForm({ ...productForm, badge: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      >
+                        <option value="">Ninguno</option>
+                        <option value="Mas Vendido">Mas Vendido</option>
+                        <option value="Premium">Premium</option>
+                        <option value="Recomendado">Recomendado</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Orden</label>
+                      <input
+                        type="number"
+                        value={productForm.sort_order}
+                        onChange={e => setProductForm({ ...productForm, sort_order: Number(e.target.value) })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        min={0}
+                      />
+                    </div>
+                    <div className="flex items-center gap-3 pt-6">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={productForm.is_active}
+                          onChange={e => setProductForm({ ...productForm, is_active: e.target.checked })}
+                          className="rounded"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Producto activo</span>
+                      </label>
+                    </div>
+                    <div className="md:col-span-2 border-t border-gray-100 pt-4 mt-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <Upload className="w-4 h-4" /> Archivo del producto
+                      </label>
+                      <div className="flex items-center gap-4">
+                        <input
+                          type="file"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file || !productForm.code) {
+                              toast.error('Primero guarda el codigo del producto');
+                              return;
+                            }
+                            setUploadingFile(true);
+                            const path = `product_files/${productForm.code}/${file.name}`;
+                            const { error } = await supabase.storage
+                              .from('product_files')
+                              .upload(path, file, { upsert: true });
+                            if (error) {
+                              toast.error('Error al subir: ' + error.message);
+                            } else {
+                              setProductForm({ ...productForm, file_storage_path: path });
+                              toast.success('Archivo subido exitosamente');
+                            }
+                            setUploadingFile(false);
+                          }}
+                          className="text-sm"
+                          disabled={!productForm.code}
+                        />
+                        {uploadingFile && <Loader2 className="w-4 h-4 animate-spin text-orange-500" />}
+                        {productForm.file_storage_path && (
+                          <span className="text-xs text-green-600 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> {productForm.file_storage_path}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 mt-6 pt-4 border-t border-gray-100">
+                    <button
+                      onClick={async () => {
+                        if (!productForm.code || !productForm.name || !productForm.price) {
+                          toast.error('Codigo, nombre y precio son obligatorios');
+                          return;
+                        }
+                        setSavingProduct(true);
+                        const result = await productService.upsertProduct({
+                          ...productForm,
+                          id: editingProduct?.id,
+                        });
+                        if (result.success) {
+                          toast.success(editingProduct ? 'Producto actualizado' : 'Producto creado');
+                          setShowProductModal(false);
+                          loadProducts();
+                        } else {
+                          toast.error(result.error || 'Error al guardar');
+                        }
+                        setSavingProduct(false);
+                      }}
+                      disabled={savingProduct}
+                      className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                    >
+                      {savingProduct ? 'Guardando...' : editingProduct ? 'Guardar Cambios' : 'Crear Producto'}
+                    </button>
+                    <button
+                      onClick={() => setShowProductModal(false)}
+                      className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {tab === 'portfolio' && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-[#1a2332] flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-orange-500" /> Portfolio de Proyectos
+              </h2>
+              <button
+                onClick={() => {
+                  setEditingPortfolio(null);
+                  setPortFolioForm({ title: '', description: '', category: '', location: '', client_name: '', completion_date: '', is_featured: false, sort_order: portfolioProjects.length + 1 });
+                  setPortfolioImages([]);
+                  setShowPortfolioModal(true);
+                }}
+                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" /> Agregar Proyecto
+              </button>
+            </div>
+
+            {portfolioLoading && portfolioProjects.length === 0 ? (
+              <div className="text-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700">Titulo</th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700">Categoria</th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700">Cliente</th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700">Imagenes</th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700">Destacado</th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700">Accion</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {portfolioProjects.map(p => (
+                        <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div className="font-medium">{p.title}</div>
+                            {p.location && <div className="text-xs text-gray-500">{p.location}</div>}
+                          </td>
+                          <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">{p.category || '—'}</span></td>
+                          <td className="px-4 py-3 text-xs text-gray-600">{p.client_name || '—'}</td>
+                          <td className="px-4 py-3 text-xs text-gray-500">{p.images?.length || 0} imagenes</td>
+                          <td className="px-4 py-3">{p.is_featured ? <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">Si</span> : <span className="text-xs text-gray-400">No</span>}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => {
+                                  setEditingPortfolio(p);
+                                  setPortFolioForm({
+                                    title: p.title,
+                                    description: p.description || '',
+                                    category: p.category || '',
+                                    location: p.location || '',
+                                    client_name: p.client_name || '',
+                                    completion_date: p.completion_date ? p.completion_date.slice(0, 10) : '',
+                                    is_featured: p.is_featured,
+                                    sort_order: p.sort_order,
+                                  });
+                                  setPortfolioImages((p.images || []).map((img: any) => ({ id: img.id, url: img.image_url, caption: img.caption || '' })));
+                                  setShowPortfolioModal(true);
+                                }}
+                                className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200"
+                              >
+                                <Edit2 className="w-3 h-3 inline mr-0.5" /> Editar
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (!confirm(`Eliminar "${p.title}"?`)) return;
+                                  const r = await portfolioService.deleteProject(p.id);
+                                  if (r.success) { toast.success('Proyecto eliminado'); loadPortfolio(); }
+                                  else toast.error(r.error || 'Error');
+                                }}
+                                className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
+                              >
+                                <Trash2 className="w-3 h-3 inline mr-0.5" /> Eliminar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {portfolioProjects.length === 0 && (
+                        <tr><td colSpan={6} className="text-center py-8 text-gray-500">No hay proyectos. Agrega tu primer proyecto.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {showPortfolioModal && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-[#1a2332]">
+                      {editingPortfolio ? `Editar: ${editingPortfolio.title}` : 'Nuevo Proyecto'}
+                    </h3>
+                    <button onClick={() => setShowPortfolioModal(false)} className="text-gray-400 hover:text-gray-600"><XCircle className="w-6 h-6" /></button>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Titulo *</label>
+                      <input type="text" value={portFolioForm.title} onChange={e => setPortFolioForm({ ...portFolioForm, title: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" required />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Descripcion</label>
+                      <textarea value={portFolioForm.description} onChange={e => setPortFolioForm({ ...portFolioForm, description: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" rows={3} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                      <input type="text" value={portFolioForm.category} onChange={e => setPortFolioForm({ ...portFolioForm, category: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Construccion, Diseno, Topografia" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Ubicacion</label>
+                      <input type="text" value={portFolioForm.location} onChange={e => setPortFolioForm({ ...portFolioForm, location: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+                      <input type="text" value={portFolioForm.client_name} onChange={e => setPortFolioForm({ ...portFolioForm, client_name: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de finalizacion</label>
+                      <input type="date" value={portFolioForm.completion_date} onChange={e => setPortFolioForm({ ...portFolioForm, completion_date: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={portFolioForm.is_featured} onChange={e => setPortFolioForm({ ...portFolioForm, is_featured: e.target.checked })} className="rounded" />
+                        <span className="text-sm font-medium text-gray-700">Destacado</span>
+                      </label>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Orden</label>
+                        <input type="number" value={portFolioForm.sort_order} onChange={e => setPortFolioForm({ ...portFolioForm, sort_order: Number(e.target.value) })}
+                          className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm" min={0} />
+                      </div>
+                    </div>
+
+                    {/* Portfolio Images */}
+                    <div className="md:col-span-2 border-t border-gray-100 pt-4 mt-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <Image className="w-4 h-4" /> Imagenes del proyecto
+                      </label>
+                      <div className="flex gap-2 mb-3">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={uploadingPortfolioImage}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setUploadingPortfolioImage(true);
+                            const path = `portfolio/${Date.now()}_${file.name}`;
+                            const { error } = await supabase.storage.from('product_files').upload(path, file, { upsert: true });
+                            if (error) {
+                              toast.error('Error al subir imagen: ' + error.message);
+                            } else {
+                              const { data: urlData } = await supabase.storage.from('product_files').createSignedUrl(path, 31536000);
+                              setPortfolioImages(prev => [...prev, { url: urlData?.signedUrl || path, caption: '' }]);
+                              toast.success('Imagen agregada');
+                            }
+                            setUploadingPortfolioImage(false);
+                          }}
+                          className="text-sm"
+                        />
+                        {uploadingPortfolioImage && <Loader2 className="w-4 h-4 animate-spin text-orange-500" />}
+                      </div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {portfolioImages.map((img, i) => (
+                          <div key={i} className="relative group">
+                            <img src={img.url} alt="" className="w-full h-24 object-cover rounded-lg border border-gray-200" />
+                            <button
+                              onClick={() => {
+                                if (img.id) portfolioService.deleteImage(img.id);
+                                setPortfolioImages(prev => prev.filter((_, idx) => idx !== i));
+                              }}
+                              className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 mt-6 pt-4 border-t border-gray-100">
+                    <button
+                      onClick={async () => {
+                        if (!portFolioForm.title) { toast.error('El titulo es obligatorio'); return; }
+                        setSavingPortfolio(true);
+                        const r = await portfolioService.upsertProject({
+                          ...portFolioForm,
+                          completion_date: portFolioForm.completion_date || null,
+                          id: editingPortfolio?.id,
+                        });
+                        if (r.success) {
+                          const projectId = r.id || editingPortfolio?.id;
+                          if (projectId) {
+                            const existingIds = new Set((editingPortfolio?.images || []).map((img: any) => img.id));
+                            for (const img of portfolioImages) {
+                              if (!img.id && img.url) {
+                                await portfolioService.addImage(projectId, img.url, img.caption);
+                              }
+                            }
+                            for (const oldImg of (editingPortfolio?.images || [])) {
+                              if (!portfolioImages.find(i => i.id === oldImg.id)) {
+                                await portfolioService.deleteImage(oldImg.id);
+                              }
+                            }
+                          }
+                          toast.success(editingPortfolio ? 'Proyecto actualizado' : 'Proyecto creado');
+                          setShowPortfolioModal(false);
+                          loadPortfolio();
+                        } else {
+                          toast.error(r.error || 'Error al guardar');
+                        }
+                        setSavingPortfolio(false);
+                      }}
+                      disabled={savingPortfolio}
+                      className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                    >
+                      {savingPortfolio ? 'Guardando...' : editingPortfolio ? 'Guardar Cambios' : 'Crear Proyecto'}
+                    </button>
+                    <button onClick={() => setShowPortfolioModal(false)}
+                      className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm font-semibold">
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         {tab === 'banking' && (
           <div>
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">

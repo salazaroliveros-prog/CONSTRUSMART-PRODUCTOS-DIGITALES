@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DIGITAL_PRODUCTS, formatQ } from '@/lib/constructionData';
-import { Check, X, ShoppingBag, Smartphone, Palette, CreditCard, Tag, Star, BarChart3 } from 'lucide-react';
+import { productService, type ProductRecord } from '@/lib/productService';
+import { Check, X, ShoppingBag, Smartphone, Palette, CreditCard, Tag, Star, BarChart3, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useFormValidation } from '@/hooks/useValidation';
 import { productPurchaseSchema } from '@/lib/validation';
@@ -38,6 +39,8 @@ const StarRating: React.FC<{ rating: number; size?: number }> = ({ rating, size 
 
 const ProductsSection: React.FC = () => {
   const navigate = useNavigate();
+  const [products, setProducts] = useState(DIGITAL_PRODUCTS);
+  const [loadingProducts, setLoadingProducts] = useState(true);
   const [selected, setSelected] = useState<typeof DIGITAL_PRODUCTS[0] | null>(null);
   const [form, setForm] = useState({ name: '', email: '', phone: '', promoCode: '' });
   const [filter, setFilter] = useState<'all' | 'Software' | 'Diseño'>('all');
@@ -49,7 +52,25 @@ const ProductsSection: React.FC = () => {
     form
   );
 
-  const filtered = filter === 'all' ? DIGITAL_PRODUCTS : DIGITAL_PRODUCTS.filter(p => p.category === filter);
+  useEffect(() => {
+    productService.getActiveProducts().then(records => {
+      const mapped = records.map(r => ({
+        id: r.code,
+        name: r.name,
+        category: r.category,
+        price: r.price,
+        priceLabel: r.price_label,
+        description: r.description,
+        features: r.features,
+        image: r.image_url || DIGITAL_PRODUCTS.find(d => d.id === r.code)?.image || '',
+        badge: r.badge || undefined,
+      }));
+      setProducts(mapped.length > 0 ? mapped : DIGITAL_PRODUCTS);
+      setLoadingProducts(false);
+    });
+  }, []);
+
+  const filtered = filter === 'all' ? products : products.filter(p => p.category === filter);
 
   const handleApplyPromoCode = async () => {
     if (!form.promoCode.trim()) {

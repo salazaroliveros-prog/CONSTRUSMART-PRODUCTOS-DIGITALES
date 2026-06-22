@@ -1,4 +1,6 @@
 import { supabase } from './supabase';
+import { emailService } from './emailService';
+import { formatQ } from './constructionData';
 
 export interface PaymentProof {
   id: string;
@@ -86,6 +88,13 @@ class ReceiptService {
       }
 
       onProgress?.(100);
+
+      emailService.sendReceiptReceived(customerEmail, 'Cliente', orderId);
+
+      const VITE_ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL;
+      if (VITE_ADMIN_EMAIL) {
+        emailService.sendAdminNewReceipt(VITE_ADMIN_EMAIL, 'Cliente', orderId, 0);
+      }
 
       return { success: true, proof };
     } catch (e: any) {

@@ -104,6 +104,51 @@ class EmailService {
     return this.sendEmail(template);
   }
 
+  // Template: Comprobante recibido
+  async sendReceiptReceived(customerEmail: string, customerName: string, orderId: string): Promise<boolean> {
+    return this.sendEmail({
+      to: customerEmail,
+      subject: `Comprobante recibido - Orden #${orderId.slice(0, 8)} - Construsmart`,
+      html: this.getReceiptReceivedHtml(customerName, orderId),
+    });
+  }
+
+  // Template: Pago aprobado
+  async sendPaymentApproved(customerEmail: string, customerName: string, orderId: string, portalLink: string): Promise<boolean> {
+    return this.sendEmail({
+      to: customerEmail,
+      subject: `Pago confirmado - Tu producto esta listo - Orden #${orderId.slice(0, 8)}`,
+      html: this.getPaymentApprovedHtml(customerName, orderId, portalLink),
+    });
+  }
+
+  // Template: Pago rechazado
+  async sendPaymentRejected(customerEmail: string, customerName: string, orderId: string, reason: string): Promise<boolean> {
+    return this.sendEmail({
+      to: customerEmail,
+      subject: `Comprobante rechazado - Orden #${orderId.slice(0, 8)} - Construsmart`,
+      html: this.getPaymentRejectedHtml(customerName, orderId, reason),
+    });
+  }
+
+  // Template: Producto listo para descargar
+  async sendDeliveryReady(customerEmail: string, customerName: string, orderId: string, productName: string, downloadLink: string, licenseKey?: string): Promise<boolean> {
+    return this.sendEmail({
+      to: customerEmail,
+      subject: `Tu producto "${productName}" esta listo para descargar`,
+      html: this.getDeliveryReadyHtml(customerName, orderId, productName, downloadLink, licenseKey),
+    });
+  }
+
+  // Template: Notificacion al admin
+  async sendAdminNewReceipt(adminEmail: string, customerName: string, orderId: string, amount: number): Promise<boolean> {
+    return this.sendEmail({
+      to: adminEmail,
+      subject: `[Admin] Nuevo comprobante pendiente - Orden #${orderId.slice(0, 8)}`,
+      html: this.getAdminNewReceiptHtml(customerName, orderId, amount),
+    });
+  }
+
   // Generar templates HTML
   private getOrderConfirmationTemplate(data: OrderConfirmationData): EmailTemplate {
     const { customerName, orderId, productName, amount, currency } = data;
@@ -353,6 +398,126 @@ class EmailService {
       `,
       text: `¡Bienvenido a ConstructoraGT! Hola ${name}, gracias por unirte a nuestra comunidad. Explora nuestra plataforma y comienza a planificar tu proyecto de construcción.`
     };
+  }
+
+  private getReceiptReceivedHtml(name: string, orderId: string): string {
+    return `
+      <div style="font-family:Arial;max-width:600px;margin:0 auto;">
+        <div style="background:#1a2332;padding:24px;text-align:center;border-radius:10px 10px 0 0;">
+          <h1 style="color:white;margin:0;">Construsmart</h1>
+        </div>
+        <div style="padding:24px;background:#f9fafb;">
+          <h2>Comprobante recibido</h2>
+          <p>Hola ${name},</p>
+          <p>Hemos recibido tu comprobante de pago para la orden <strong>#${orderId.slice(0, 8)}</strong>.</p>
+          <p>Lo revisaremos en las proximas 24 horas habiles. Te notificaremos cuando sea aprobado.</p>
+          <p style="margin-top:24px;color:#666;font-size:12px;">
+            Si tienes dudas, contactanos a <strong>salazaroliveros@gmail.com</strong> o WhatsApp <strong>+502 4060 1526</strong>.
+          </p>
+        </div>
+        <div style="text-align:center;padding:16px;color:#999;font-size:11px;">
+          Construsmart - Soluciones Digitales para la Construccion<br>
+          Barrio el Centro, Quesada, Jutiapa
+        </div>
+      </div>`;
+  }
+
+  private getPaymentApprovedHtml(name: string, orderId: string, portalLink: string): string {
+    return `
+      <div style="font-family:Arial;max-width:600px;margin:0 auto;">
+        <div style="background:#1a2332;padding:24px;text-align:center;border-radius:10px 10px 0 0;">
+          <h1 style="color:white;margin:0;">Pago confirmado</h1>
+        </div>
+        <div style="padding:24px;background:#f9fafb;">
+          <h2>Gracias por tu compra, ${name}!</h2>
+          <p>Tu pago para la orden <strong>#${orderId.slice(0, 8)}</strong> ha sido aprobado.</p>
+          <p>Tu producto digital esta listo para descargar.</p>
+          <a href="${portalLink}"
+             style="display:inline-block;background:#f97316;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;font-weight:bold;margin:16px 0;">
+            Ir a mis pedidos
+          </a>
+          <p style="margin-top:24px;color:#666;font-size:12px;">
+            Contacto: salazaroliveros@gmail.com | +502 4060 1526
+          </p>
+        </div>
+        <div style="text-align:center;padding:16px;color:#999;font-size:11px;">
+          Construsmart - Barrio el Centro, Quesada, Jutiapa
+        </div>
+      </div>`;
+  }
+
+  private getPaymentRejectedHtml(name: string, orderId: string, reason: string): string {
+    return `
+      <div style="font-family:Arial;max-width:600px;margin:0 auto;">
+        <div style="background:#1a2332;padding:24px;text-align:center;border-radius:10px 10px 0 0;">
+          <h1 style="color:white;margin:0;">Comprobante rechazado</h1>
+        </div>
+        <div style="padding:24px;background:#f9fafb;">
+          <h2>Hola ${name},</h2>
+          <p>El comprobante de la orden <strong>#${orderId.slice(0, 8)}</strong> fue rechazado.</p>
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;margin:16px 0;">
+            <p style="color:#b91c1c;font-weight:bold;margin:0 0 4px;">Motivo del rechazo:</p>
+            <p style="color:#991b1b;margin:0;">${reason}</p>
+          </div>
+          <p>Puedes subir un nuevo comprobante desde tu portal de cliente.</p>
+          <a href="${import.meta.env.VITE_APP_URL || 'http://localhost:8080'}/portal"
+             style="display:inline-block;background:#f97316;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;font-weight:bold;margin:16px 0;">
+            Subir nuevo comprobante
+          </a>
+          <p style="margin-top:24px;color:#666;font-size:12px;">
+            Contacto: salazaroliveros@gmail.com | +502 4060 1526
+          </p>
+        </div>
+        <div style="text-align:center;padding:16px;color:#999;font-size:11px;">
+          Construsmart - Barrio el Centro, Quesada, Jutiapa
+        </div>
+      </div>`;
+  }
+
+  private getDeliveryReadyHtml(name: string, orderId: string, productName: string, downloadLink: string, licenseKey?: string): string {
+    return `
+      <div style="font-family:Arial;max-width:600px;margin:0 auto;">
+        <div style="background:#1a2332;padding:24px;text-align:center;border-radius:10px 10px 0 0;">
+          <h1 style="color:white;margin:0;">Producto listo</h1>
+        </div>
+        <div style="padding:24px;background:#f9fafb;">
+          <h2>Felicidades ${name}!</h2>
+          <p>Tu producto <strong>${productName}</strong> (orden #${orderId.slice(0, 8)}) ya esta listo.</p>
+          ${licenseKey ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;margin:16px 0;">
+            <p style="color:#166534;font-weight:bold;margin:0 0 4px;">Tu licencia:</p>
+            <p style="font-family:monospace;font-size:14px;color:#15803d;margin:0;letter-spacing:1px;">${licenseKey}</p>
+          </div>` : ''}
+          <a href="${downloadLink}"
+             style="display:inline-block;background:#f97316;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;font-weight:bold;margin:16px 0;">
+            Descargar producto
+          </a>
+          <p style="color:#666;font-size:12px;">El enlace expira en 7 dias. Maximo 5 descargas.</p>
+          <p style="margin-top:24px;color:#666;font-size:12px;">
+            Contacto: salazaroliveros@gmail.com | +502 4060 1526
+          </p>
+        </div>
+        <div style="text-align:center;padding:16px;color:#999;font-size:11px;">
+          Construsmart - Barrio el Centro, Quesada, Jutiapa
+        </div>
+      </div>`;
+  }
+
+  private getAdminNewReceiptHtml(customerName: string, orderId: string, amount: number): string {
+    return `
+      <div style="font-family:Arial;max-width:600px;margin:0 auto;">
+        <div style="background:#1a2332;padding:24px;text-align:center;border-radius:10px 10px 0 0;">
+          <h1 style="color:white;margin:0;">Nuevo comprobante</h1>
+        </div>
+        <div style="padding:24px;background:#f9fafb;">
+          <p><strong>Cliente:</strong> ${customerName}</p>
+          <p><strong>Orden:</strong> #${orderId.slice(0, 8)}</p>
+          <p><strong>Monto:</strong> Q${amount.toLocaleString()}</p>
+          <a href="${import.meta.env.VITE_APP_URL || 'http://localhost:8080'}/admin"
+             style="display:inline-block;background:#1a2332;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;font-weight:bold;margin:16px 0;">
+            Revisar en el panel
+          </a>
+        </div>
+      </div>`;
   }
 
   private getPasswordResetTemplate(email: string, resetLink: string): EmailTemplate {

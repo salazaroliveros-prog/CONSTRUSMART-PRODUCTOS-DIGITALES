@@ -56,6 +56,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const category = order?.item_category || '';
       const isSoftware = category.toLowerCase() === 'software';
 
+      const productId = order?.product_id || null;
+      let productStoragePath: string | null = null;
+      if (productId) {
+        const { data: prod } = await supabase
+          .from('products')
+          .select('code, file_storage_path')
+          .eq('id', productId)
+          .maybeSingle();
+        if (prod?.file_storage_path) {
+          productStoragePath = prod.file_storage_path;
+        }
+      }
+
       let licenseKey: string | null = null;
       if (isSoftware) {
         const prefix = 'CGT';
@@ -76,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const token = Array.from({ length: 32 }, () => Math.random().toString(36)[2]).join('');
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-      const storagePath = `${(order?.item_name || 'product').toUpperCase().replace(/[^A-Z0-9]/g, '_')}/latest.zip`;
+      const storagePath = productStoragePath || `${(order?.item_name || 'product').toUpperCase().replace(/[^A-Z0-9]/g, '_')}/latest.zip`;
 
       const { error: dlError } = await supabase.from('download_links').insert({
         order_id: orderId,

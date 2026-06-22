@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { digitalDeliveryService } from './digitalDelivery';
+import { emailService } from './emailService';
 
 interface PaymentProof {
   id: string;
@@ -93,6 +94,11 @@ class ReceiptAdminService {
         return { success: false, error: 'Pago aprobado pero error en entrega: ' + deliveryResult.error };
       }
 
+      const order = (proof as any).constructora_orders || {};
+      const portalLink = `${import.meta.env.VITE_APP_URL || 'http://localhost:8080'}/portal`;
+      emailService.sendPaymentApproved(proof.customer_email, order.customer_name || 'Cliente', orderId, portalLink);
+      emailService.sendDeliveryReady(proof.customer_email, order.customer_name || 'Cliente', orderId, order.item_name || 'Producto', portalLink, deliveryResult.licenseKey);
+
       return { success: true };
     } catch (e: any) {
       return { success: false, error: e.message || 'Error inesperado.' };
@@ -137,6 +143,9 @@ class ReceiptAdminService {
       if (orderError) {
         return { success: false, error: 'Error al actualizar la orden: ' + orderError.message };
       }
+
+      const order = (proof as any).constructora_orders || {};
+      emailService.sendPaymentRejected(proof.customer_email, order.customer_name || 'Cliente', orderId, reason);
 
       return { success: true };
     } catch (e: any) {

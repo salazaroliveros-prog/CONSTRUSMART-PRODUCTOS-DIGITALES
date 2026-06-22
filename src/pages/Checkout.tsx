@@ -78,6 +78,14 @@ const Checkout: React.FC = () => {
       const createdIds: string[] = [];
 
       for (const item of items) {
+        let productId: string | null = null;
+        const { data: product } = await supabase
+          .from('products')
+          .select('id')
+          .eq('code', item.id)
+          .maybeSingle();
+        if (product) productId = product.id;
+
         const { data: order, error } = await supabase
           .from('constructora_orders')
           .insert({
@@ -90,6 +98,7 @@ const Checkout: React.FC = () => {
             amount: item.price,
             currency: 'GTQ',
             status: 'pending_payment',
+            product_id: productId,
             notes: `Multi-item order. Qty: ${item.quantity}${item.promoCode ? `, promo: ${item.promoCode}` : ''}`,
           })
           .select('id')

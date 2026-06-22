@@ -230,6 +230,24 @@ class DigitalDeliveryService {
   }
 
   // Procesar entrega completa para una orden pagada
+  private async resolveStoragePath(orderId: string, productId: string | null, itemName: string): Promise<string | null> {
+    if (productId) {
+      const { data } = await supabase
+        .from('products')
+        .select('file_storage_path')
+        .eq('id', productId)
+        .maybeSingle();
+      if (data?.file_storage_path) return data.file_storage_path;
+    }
+    const { data } = await supabase
+      .from('products')
+      .select('file_storage_path')
+      .eq('code', productId)
+      .maybeSingle();
+    if (data?.file_storage_path) return data.file_storage_path;
+    return getDefaultStoragePath(itemName);
+  }
+
   async processOrderDelivery(orderId: string): Promise<{ success: boolean; error?: string; licenseKey?: string; downloadToken?: string }> {
     try {
       const { data: order, error: orderError } = await supabase
@@ -246,17 +264,24 @@ class DigitalDeliveryService {
       const isSoftware = category.toLowerCase() === 'software';
       const isDiseno = category.toLowerCase() === 'diseño' || category.toLowerCase() === 'diseno';
 
-      const storagePath = getDefaultStoragePath(order.item_name || order.id);
+      const storagePath = await this.resolveStoragePath(orderId, order.product_id, order.item_name || order.id);
       if (!storagePath && (isSoftware || isDiseno)) {
         return { success: false, error: 'No hay archivo de producto configurado para: ' + (order.item_name || order.id) };
       }
 
       let licenseKey: string | null = null;
       if (isSoftware) {
-        licenseKey = generateLicenseKey(order.item_name || order.id);
+        const productCode = order.item_name || order.id;
+        const { data: product } = await supabase
+          .from('products')
+          .select('code')
+          .eq('id', order.product_id)
+          .maybeSingle();
+        const codeKey = product?.code || productCode;
+        licenseKey = generateLicenseKey(codeKey);
         const { error: licError } = await supabase.from('product_licenses').insert({
           order_id: orderId,
-          product_id: order.item_name || order.id,
+          product_id: productCode,
           license_key: licenseKey,
           created_at: new Date().toISOString(),
           expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
