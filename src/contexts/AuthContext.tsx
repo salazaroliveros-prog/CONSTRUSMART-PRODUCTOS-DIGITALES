@@ -36,16 +36,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         if (session?.user) {
-          const { data: userData } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
+          const isAdmin = session.user.email === import.meta.env.VITE_ADMIN_EMAIL;
           setUser({
             id: session.user.id,
             email: session.user.email || '',
-            role: userData?.role || 'user',
+            role: isAdmin ? 'admin' : 'user',
           });
         } else {
           setUser(null);
@@ -61,10 +56,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
+        const isAdmin = session.user.email === import.meta.env.VITE_ADMIN_EMAIL;
         setUser({
           id: session.user.id,
           email: session.user.email || '',
-          role: 'admin', // Default role for simplicity
+          role: isAdmin ? 'admin' : 'user',
         });
       }
     } catch (error) {
