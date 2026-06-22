@@ -24,16 +24,18 @@ const Admin: React.FC = () => {
 
   const loadAll = async () => {
     setLoading(true);
-    const [o, q, s, l] = await Promise.all([
+    const [o, q, s, l, b] = await Promise.all([
       supabase.from('constructora_orders').select('*').order('created_at', { ascending: false }),
       supabase.from('constructora_quotes').select('*').order('created_at', { ascending: false }),
       supabase.from('constructora_service_requests').select('*').order('created_at', { ascending: false }),
       supabase.from('constructora_leads').select('*').order('created_at', { ascending: false }),
+      bankingService.getAllBankingInfo(),
     ]);
     setOrders(o.data || []);
     setQuotes(q.data || []);
     setServices(s.data || []);
     setLeads(l.data || []);
+    setBankingInfo(b || []);
     setLoading(false);
   };
 
