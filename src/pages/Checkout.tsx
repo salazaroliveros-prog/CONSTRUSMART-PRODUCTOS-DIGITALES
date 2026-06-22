@@ -111,16 +111,22 @@ const Checkout: React.FC = () => {
       setOrderIds(createdIds);
       setPaymentConfirmed(true);
 
-      await fetch('https://famous.ai/api/crm/6a1093dc76aee1f11d76c7cd/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: customer.email,
-          name: customer.name,
-          source: 'checkout-initiated',
-          tags: ['cliente-pendiente', ...items.map(i => i.category.toLowerCase())],
-        }),
-      });
+      // CRM notification (non-blocking, env-configurable)
+      const crmUrl = import.meta.env.VITE_CRM_WEBHOOK_URL;
+      if (crmUrl) {
+        fetch(crmUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: customer.email,
+            name: customer.name,
+            source: 'checkout-initiated',
+            tags: ['cliente-pendiente', ...items.map(i => i.category.toLowerCase())],
+          }),
+        }).catch(() => {
+          console.warn('CRM webhook non-bloqueante falló');
+        });
+      }
 
       sessionStorage.removeItem('checkout_items');
       sessionStorage.removeItem('checkout_item');
@@ -147,8 +153,8 @@ const Checkout: React.FC = () => {
           <p className="text-gray-600 mb-6">
             Gracias {customer.name}, {orderIds.length > 1 ? 'tus órdenes' : 'tu orden'}
             {orderIds.length > 1 ? (
-              <span className="block mt-1 font-mono text-xs text-gray-500">
-                {orderIds.map(id => id.slice(0, 8)).join(', ')}
+              <span className="block mt-1 font-mono text-xs text-gray-500 space-x-2">
+                {orderIds.map(id => <span key={id} className="bg-gray-100 px-2 py-0.5 rounded">#{id.slice(0, 8)}</span>)}
               </span>
             ) : (
               <span className="font-mono text-sm mx-1">#{orderIds[0].slice(0, 8)}</span>
@@ -198,12 +204,22 @@ const Checkout: React.FC = () => {
             <p className="text-xs text-gray-500 mb-3">
               Sube el comprobante de la transferencia para acelerar la verificacion.
             </p>
-            <FileUploader
-              onUpload={async (file) => {
-                const result = await receiptService.uploadReceipt(orderIds[0], customer.email, file);
-                return result;
-              }}
-            />
+            <div className="space-y-3">
+              <p className="text-xs text-gray-500 mb-1">
+                {orderIds.length > 1 ? `Se generaron ${orderIds.length} órdenes. Puedes subir el comprobante para cada una:` : 'Sube tu comprobante:'}
+              </p>
+              {orderIds.map((oid, idx) => (
+                <div key={oid} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <div className="text-xs text-gray-500 font-mono mb-2">Orden #{oid.slice(0, 8)}</div>
+                  <FileUploader
+                    onUpload={async (file) => {
+                      const result = await receiptService.uploadReceipt(oid, customer.email, file);
+                      return result;
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           <Link

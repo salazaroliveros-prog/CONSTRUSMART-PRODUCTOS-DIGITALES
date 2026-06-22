@@ -67,6 +67,9 @@ const CustomerPortal: React.FC = () => {
   const [verifying, setVerifying] = useState(false);
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
+  const [otpAttempts, setOtpAttempts] = useState(0);
+  const [otpLockedUntil, setOtpLockedUntil] = useState(0);
+  const [otpCooldown, setOtpCooldown] = useState(0);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [proofs, setProofs] = useState<Record<string, PaymentProof[]>>({});
   const [proofUrls, setProofUrls] = useState<Record<string, string>>({});
@@ -77,12 +80,32 @@ const CustomerPortal: React.FC = () => {
 
   const sendCode = async () => {
     if (!email) return;
+    // Rate limiting: 30s cooldown between sends
+    if (Date.now() < otpCooldown) {
+      const remaining = Math.ceil((otpCooldown - Date.now()) / 1000);
+      toast.error(`Espera ${remaining}s antes de solicitar otro código`);
+      return;
+    }
+    // Lock after 5 attempts
+    if (otpAttempts >= 5) {
+      const lockedUntil = Date.now() + 15 * 60 * 1000; // 15 min
+      setOtpLockedUntil(lockedUntil);
+      toast.error('Demasiados intentos. Intenta de nuevo en 15 minutos.');
+      return;
+    }
+    if (Date.now() < otpLockedUntil) {
+      const remaining = Math.ceil((otpLockedUntil - Date.now()) / 60000);
+      toast.error(`Cuenta bloqueada. Intenta de nuevo en ${remaining} minuto(s).`);
+      return;
+    }
     setSendingCode(true);
     try {
       const { error } = await supabase.auth.signInWithOtp({ email });
       if (error) throw error;
       setCodeSent(true);
-      toast.success('Codigo enviado a ' + email);
+      setOtpCooldown(Date.now() + 30000); // 30s cooldown
+      setOtpAttempts(prev => prev + 1);
+      toast.success('Código enviado a ' + email);
     } catch (e: any) {
       toast.error('Error: ' + e.message);
     } finally {
@@ -92,14 +115,26 @@ const CustomerPortal: React.FC = () => {
 
   const verifyCode = async () => {
     if (!code || !email) return;
+    // Check lock
+    if (Date.now() < otpLockedUntil) {
+      toast.error('Cuenta bloqueada temporalmente por seguridad.');
+      return;
+    }
     setVerifying(true);
     try {
       const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
       if (error) throw error;
       setIsLoggedIn(true);
+      setOtpAttempts(0);
       loadOrders();
     } catch (e: any) {
-      toast.error('Codigo incorrecto: ' + e.message);
+      setOtpAttempts(prev => prev + 1);
+      if (otpAttempts >= 4) {
+        setOtpLockedUntil(Date.now() + 15 * 60 * 1000);
+        toast.error('Demasiados intentos fallidos. Cuenta bloqueada por 15 minutos.');
+      } else {
+        toast.error('Código incorrecto. Intento ' + (otpAttempts + 1) + ' de 5.');
+      }
     } finally {
       setVerifying(false);
     }
@@ -228,12 +263,17 @@ const CustomerPortal: React.FC = () => {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                 />
+                {otpAttempts > 0 && (
+                  <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Intentos realizados: {otpAttempts}/5. Después de 5 intentos, la cuenta se bloqueará 15 minutos.
+                  </div>
+                )}
                 <button
                   onClick={sendCode}
-                  disabled={sendingCode || !email}
+                  disabled={sendingCode || !email || Date.now() < otpCooldown}
                   className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-lg font-semibold disabled:opacity-50"
                 >
-                  {sendingCode ? 'Enviando...' : 'Enviar codigo de acceso'}
+                  {sendingCode ? 'Enviando...' : Date.now() < otpCooldown ? 'Espera 30s...' : 'Enviar código de acceso'}
                 </button>
               </div>
             ) : (
