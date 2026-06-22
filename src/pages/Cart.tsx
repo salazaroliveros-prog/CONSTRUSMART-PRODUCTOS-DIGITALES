@@ -34,16 +34,19 @@ const Cart: React.FC = () => {
         message: `Carrito abandonado: ${cart.items.map(i => `${i.name}×${i.quantity}`).join(', ')} — Total: Q${cart.total}`,
       });
 
-      await fetch('https://famous.ai/api/crm/6a1093dc76aee1f11d76c7cd/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: recoveryEmail,
-          name: '',
-          source: 'abandoned-cart',
-          tags: ['carrito-abandonado'],
-        }),
-      });
+      const crmUrl = import.meta.env.VITE_CRM_WEBHOOK_URL;
+      if (crmUrl) {
+        fetch(crmUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: recoveryEmail,
+            name: '',
+            source: 'abandoned-cart',
+            tags: ['carrito-abandonado'],
+          }),
+        }).catch(() => {});
+      }
 
       localStorage.setItem(RECOVERY_SENT_KEY, 'true');
       toast.success('Te notificaremos cuando haya ofertas especiales para tu carrito.');

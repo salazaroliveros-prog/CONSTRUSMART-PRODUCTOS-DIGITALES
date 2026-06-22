@@ -1297,38 +1297,66 @@ const StatCard: React.FC<{ icon: any; label: string; value: string; color: strin
   );
 };
 
-const DataTable: React.FC<{ title: string; data: any[]; columns: { label: string; render: (item: any) => React.ReactNode }[] }> = ({ title, data, columns }) => (
-  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-    <div className="px-5 py-4 border-b border-gray-100">
-      <h3 className="font-bold text-[#1a2332]">{title}</h3>
-    </div>
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead className="bg-gray-50">
-          <tr>
-            {columns.map(c => (
-              <th key={c.label} className="text-left px-4 py-3 font-semibold text-gray-700">{c.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((item, i) => (
-            <tr key={item.id || i} className="border-t border-gray-100 hover:bg-gray-50">
+const DataTable: React.FC<{ title: string; data: any[]; columns: { label: string; render: (item: any) => React.ReactNode }[]; pageSize?: number }> = ({ title, data, columns, pageSize = 10 }) => {
+  const [page, setPage] = useState(0);
+  const totalPages = Math.ceil(data.length / pageSize);
+  const paginated = data.slice(page * pageSize, (page + 1) * pageSize);
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 className="font-bold text-[#1a2332]">{title}</h3>
+        <span className="text-xs text-gray-500">{data.length} registros</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr>
               {columns.map(c => (
-                <td key={c.label} className="px-4 py-3">{c.render(item)}</td>
+                <th key={c.label} className="text-left px-4 py-3 font-semibold text-gray-700">{c.label}</th>
               ))}
             </tr>
-          ))}
-          {data.length === 0 && (
-            <tr>
-              <td colSpan={columns.length} className="text-center py-8 text-gray-500">Sin registros.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {paginated.map((item, i) => (
+              <tr key={item.id || i} className="border-t border-gray-100 hover:bg-gray-50">
+                {columns.map(c => (
+                  <td key={c.label} className="px-4 py-3">{c.render(item)}</td>
+                ))}
+              </tr>
+            ))}
+            {data.length === 0 && (
+              <tr>
+                <td colSpan={columns.length} className="text-center py-8 text-gray-500">Sin registros.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50">
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-3 py-1.5 text-xs font-medium rounded border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            ← Anterior
+          </button>
+          <span className="text-xs text-gray-600">
+            Página {page + 1} de {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className="px-3 py-1.5 text-xs font-medium rounded border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            Siguiente →
+          </button>
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 const BankingForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
   const [form, setForm] = useState({
