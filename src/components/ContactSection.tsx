@@ -58,7 +58,7 @@ const ContactSection: React.FC = () => {
               </div>
               <div>
                 <div className="font-semibold text-[#1a2332]">Teléfono / WhatsApp</div>
-                <div className="text-gray-600">+502 5555-1234</div>
+                <div className="text-gray-600">+502 4060 1526 / +502 5560 6172</div>
               </div>
             </div>
             <div className="flex items-start gap-4">
@@ -67,7 +67,7 @@ const ContactSection: React.FC = () => {
               </div>
               <div>
                 <div className="font-semibold text-[#1a2332]">Correo</div>
-                <div className="text-gray-600">info@constructoragt.com</div>
+                <div className="text-gray-600">salazaroliveros@gmail.com</div>
               </div>
             </div>
             <div className="flex items-start gap-4">
@@ -76,7 +76,7 @@ const ContactSection: React.FC = () => {
               </div>
               <div>
                 <div className="font-semibold text-[#1a2332]">Oficinas</div>
-                <div className="text-gray-600">Zona 10, Ciudad de Guatemala</div>
+                <div className="text-gray-600">Barrio el Centro, Quesada, Jutiapa</div>
               </div>
             </div>
           </div>
