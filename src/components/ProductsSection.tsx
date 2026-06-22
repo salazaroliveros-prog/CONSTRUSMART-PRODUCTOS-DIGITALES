@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { DIGITAL_PRODUCTS, formatQ } from '@/lib/constructionData';
 import { productService, type ProductRecord } from '@/lib/productService';
@@ -9,6 +10,7 @@ import { productPurchaseSchema } from '@/lib/validation';
 import ProductReviews from '@/components/ProductReviews';
 import { promoCodeService } from '@/lib/promoCodeService';
 import ProductComparison from '@/components/ProductComparison';
+import { ProductGridSkeleton } from '@/components/Skeletons';
 
 const PRODUCT_RATINGS: Record<string, { avg: number; count: number }> = {
   'app-calculo': { avg: 4.5, count: 47 },
@@ -53,9 +55,12 @@ const ProductsSection: React.FC = () => {
     form
   );
 
-  useEffect(() => {
-    productService.getActiveProducts().then(records => {
-      const mapped = records.map(r => ({
+  // React Query cache for products (stale time: 5 min, cache time: 30 min)
+  const { data: cachedProducts, isLoading } = useQuery({
+    queryKey: ['active-products'],
+    queryFn: async () => {
+      const records = await productService.getActiveProducts();
+      return records.map(r => ({
         id: r.code,
         name: r.name,
         category: r.category,
@@ -66,10 +71,17 @@ const ProductsSection: React.FC = () => {
         image: r.image_url || DIGITAL_PRODUCTS.find(d => d.id === r.code)?.image || '',
         badge: r.badge || undefined,
       }));
-      setProducts(mapped.length > 0 ? mapped : DIGITAL_PRODUCTS);
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (cachedProducts) {
+      setProducts(cachedProducts.length > 0 ? cachedProducts : DIGITAL_PRODUCTS);
       setLoadingProducts(false);
-    });
-  }, []);
+    }
+  }, [cachedProducts]);
 
   const filtered = products.filter(p => {
     const matchesFilter = filter === 'all' || p.category === filter;
@@ -206,6 +218,9 @@ const ProductsSection: React.FC = () => {
           />
         </div>
 
+        {loadingProducts || isLoading ? (
+          <ProductGridSkeleton count={4} />
+        ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filtered.map(p => (
             <div
@@ -258,6 +273,7 @@ const ProductsSection: React.FC = () => {
             </div>
           ))}
         </div>
+        )}
       </div>
 
       {/* Modal: collect customer info, then navigate to /checkout */}
