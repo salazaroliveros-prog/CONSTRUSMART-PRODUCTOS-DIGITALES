@@ -22,6 +22,7 @@ const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const ProductLibrary = lazy(() => import("./pages/ProductLibrary"));
 const Portfolio = lazy(() => import("./pages/Portfolio"));
+const DesignGallery = lazy(() => import("./pages/DesignGallery"));
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -68,6 +69,7 @@ const AppRouter = () => {
         <Route path="/products/:category" element={<ProductLibrary />} />
         <Route path="/products" element={<ProductLibrary />} />
         <Route path="/portfolio" element={<Portfolio />} />
+        <Route path="/disenos" element={<DesignGallery />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>

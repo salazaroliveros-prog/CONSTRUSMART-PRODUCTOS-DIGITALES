@@ -1,3 +1,5 @@
+import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
+
 Deno.serve(async (req) => {
   const headers = {
     "Access-Control-Allow-Origin": "*",
@@ -21,37 +23,43 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Missing required fields: to, subject, html" }), { status: 400, headers })
     }
 
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")
-    const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "noreply@construsmart.com"
+    // SMTP credentials from Supabase Secrets
+    const SMTP_HOST = Deno.env.get("SMTP_HOST") || "smtp.gmail.com"
+    const SMTP_PORT = parseInt(Deno.env.get("SMTP_PORT") || "587")
+    const SMTP_USER = Deno.env.get("SMTP_USER")
+    const SMTP_PASS = Deno.env.get("SMTP_PASS")
+    const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "noreply@construsmartproductoswm.com"
 
-    if (!RESEND_API_KEY) {
-      console.error("RESEND_API_KEY not configured")
-      return new Response(JSON.stringify({ error: "Email service not configured" }), { status: 500, headers })
+    if (!SMTP_USER || !SMTP_PASS) {
+      console.error("SMTP credentials not configured")
+      return new Response(JSON.stringify({ error: "Email service not configured - configure SMTP_USER and SMTP_PASS secrets" }), { status: 500, headers })
     }
 
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const client = new SmtpClient()
+
+    try {
+      await client.connectTLS({
+        hostname: SMTP_HOST,
+        port: SMTP_PORT,
+        username: SMTP_USER,
+        password: SMTP_PASS,
+      })
+
+      await client.send({
         from: `Construsmart <${FROM_EMAIL}>`,
-        to: [body.to],
+        to: body.to,
         subject: body.subject,
+        content: body.html,
         html: body.html,
-        text: body.text || body.html.replace(/<[^>]*>/g, ""),
-      }),
-    })
+      })
 
-    const data = await res.json()
-
-    if (!res.ok) {
-      console.error("Resend API error:", data)
-      return new Response(JSON.stringify({ error: "Failed to send email", details: data }), { status: 500, headers })
+      await client.close()
+    } catch (smtpError) {
+      console.error("SMTP error:", smtpError.message)
+      return new Response(JSON.stringify({ error: "Failed to send email: " + smtpError.message }), { status: 500, headers })
     }
 
-    return new Response(JSON.stringify({ success: true, id: data.id }), { status: 200, headers })
+    return new Response(JSON.stringify({ success: true }), { status: 200, headers })
   } catch (e) {
     console.error("Error:", e.message)
     return new Response(JSON.stringify({ error: e.message || "Internal server error" }), { status: 500, headers })
