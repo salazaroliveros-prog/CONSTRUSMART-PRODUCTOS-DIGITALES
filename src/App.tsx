@@ -20,6 +20,8 @@ const ReferralProgram = lazy(() => import("./pages/ReferralProgram"));
 const MyLicenses = lazy(() => import("./pages/MyLicenses"));
 const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const ProductLibrary = lazy(() => import("./pages/ProductLibrary"));
+const Portfolio = lazy(() => import("./pages/Portfolio"));
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -63,6 +65,9 @@ const AppRouter = () => {
             </ProtectedRoute>
           } 
         />
+        <Route path="/products/:category" element={<ProductLibrary />} />
+        <Route path="/products" element={<ProductLibrary />} />
+        <Route path="/portfolio" element={<Portfolio />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>

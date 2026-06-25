@@ -5,15 +5,13 @@ export interface PortfolioProject {
   title: string;
   description: string;
   category: string;
+  service_category: string;
   location: string;
   client_name: string;
-  completion_date: string | null;
+  completion_date: string;
   is_featured: boolean;
-  sort_order: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  images?: PortfolioImage[];
+  tags: string[];
+  images: PortfolioImage[];
 }
 
 export interface PortfolioImage {
@@ -25,78 +23,88 @@ export interface PortfolioImage {
 }
 
 class PortfolioService {
-  async getActiveProjects(): Promise<PortfolioProject[]> {
-    const { data, error } = await supabase
-      .from('portfolio_projects')
-      .select('*, portfolio_images(*)')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true });
+  private static instance: PortfolioService;
 
-    if (error || !data) return [];
-
-    return data.map((p: any) => ({
-      ...p,
-      images: (p.portfolio_images || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
-    }));
+  static getInstance(): PortfolioService {
+    if (!PortfolioService.instance) {
+      PortfolioService.instance = new PortfolioService();
+    }
+    return PortfolioService.instance;
   }
 
-  async getAllProjects(): Promise<PortfolioProject[]> {
-    const { data, error } = await supabase
-      .from('portfolio_projects')
-      .select('*, portfolio_images(*)')
-      .order('sort_order', { ascending: true });
-
-    if (error || !data) return [];
-
-    return data.map((p: any) => ({
-      ...p,
-      images: (p.portfolio_images || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
-    }));
-  }
-
-  async upsertProject(project: Partial<PortfolioProject>): Promise<{ success: boolean; error?: string; id?: string }> {
+  async getProjects(): Promise<PortfolioProject[]> {
     try {
-      const payload: any = { ...project };
-      delete payload.id;
-      delete payload.created_at;
-      delete payload.updated_at;
-      delete payload.images;
+      const { data: projects, error } = await supabase
+        .from('portfolio_projects')
+        .select('*, portfolio_images(*)')
+        .eq('is_active', true)
+        .order('is_featured', { ascending: false })
+        .order('sort_order');
 
-      if (project.id) {
-        const { error } = await supabase.from('portfolio_projects').update(payload).eq('id', project.id);
-        if (error) return { success: false, error: error.message };
-        return { success: true, id: project.id };
-      }
-
-      const { data, error } = await supabase.from('portfolio_projects').insert(payload).select('id').single();
-      if (error) return { success: false, error: error.message };
-      return { success: true, id: data?.id };
-    } catch (e: any) {
-      return { success: false, error: e.message || 'Error al guardar proyecto' };
+      if (error) throw error;
+      return (projects || []).map(p => ({
+        ...p,
+        images: p.portfolio_images || [],
+      })) as PortfolioProject[];
+    } catch {
+      return [];
     }
   }
 
-  async deleteProject(projectId: string): Promise<{ success: boolean; error?: string }> {
-    const { error } = await supabase.from('portfolio_projects').delete().eq('id', projectId);
-    if (error) return { success: false, error: error.message };
-    return { success: true };
+  async getProjectsByCategory(category: string): Promise<PortfolioProject[]> {
+    try {
+      // Match by either category or service_category
+      const { data, error } = await supabase
+        .from('portfolio_projects')
+        .select('*, portfolio_images(*)')
+        .eq('is_active', true)
+        .or(`category.eq.${category},service_category.eq.${category}`)
+        .order('sort_order');
+
+      if (error) throw error;
+      return (data || []).map(p => ({
+        ...p,
+        images: p.portfolio_images || [],
+      })) as PortfolioProject[];
+    } catch {
+      return [];
+    }
   }
 
-  async addImage(projectId: string, imageUrl: string, caption?: string, sortOrder?: number): Promise<{ success: boolean; error?: string; id?: string }> {
-    const { data, error } = await supabase
-      .from('portfolio_images')
-      .insert({ project_id: projectId, image_url: imageUrl, caption: caption || '', sort_order: sortOrder || 0 })
-      .select('id')
-      .single();
-    if (error) return { success: false, error: error.message };
-    return { success: true, id: data?.id };
+  async getFeatured(): Promise<PortfolioProject[]> {
+    try {
+      const { data, error } = await supabase
+        .from('portfolio_projects')
+        .select('*, portfolio_images(*)')
+        .eq('is_active', true)
+        .eq('is_featured', true)
+        .order('sort_order')
+        .limit(6);
+
+      if (error) throw error;
+      return (data || []).map(p => ({
+        ...p,
+        images: p.portfolio_images || [],
+      })) as PortfolioProject[];
+    } catch {
+      return [];
+    }
   }
 
-  async deleteImage(imageId: string): Promise<{ success: boolean; error?: string }> {
-    const { error } = await supabase.from('portfolio_images').delete().eq('id', imageId);
-    if (error) return { success: false, error: error.message };
-    return { success: true };
+  async getCategories(): Promise<string[]> {
+    try {
+      const { data, error } = await supabase
+        .from('portfolio_projects')
+        .select('category')
+        .eq('is_active', true);
+
+      if (error) throw error;
+      const cats = new Set((data || []).map(p => p.category).filter(Boolean));
+      return Array.from(cats);
+    } catch {
+      return [];
+    }
   }
 }
 
-export const portfolioService = new PortfolioService();
+export const portfolioService = PortfolioService.getInstance();
