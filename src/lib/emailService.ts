@@ -367,7 +367,7 @@ class EmailService {
   private getWelcomeTemplate(email: string, name: string): EmailTemplate {
     return {
       to: email,
-      subject: `👋 Bienvenido a ConstructoraGT`,
+      subject: `👋 ¡Bienvenido a Construsmart, ${name}!`,
       html: `
         <!DOCTYPE html>
         <html>

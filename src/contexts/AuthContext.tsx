@@ -45,8 +45,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role: isAdmin ? 'admin' : 'user',
           });
           // Send welcome email on first sign up
-          if (event === 'SIGNED_IN' && session.user.user_metadata?.name) {
-            emailService.sendWelcomeEmail(session.user.email!, session.user.user_metadata.name).catch(() => {});
+          if (event === 'USER_CREATED' && session.user.email) {
+            const name = session.user.user_metadata?.name || session.user.email.split('@')[0];
+            emailService.sendWelcomeEmail(session.user.email, name).catch(() => {});
           }
         } else {
           setUser(null);
