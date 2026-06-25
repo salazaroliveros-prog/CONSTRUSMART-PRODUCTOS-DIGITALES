@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -12,9 +11,14 @@ import { toast } from 'sonner';
 import {
   LayoutDashboard, ShoppingCart, Calculator, HardHat, ArrowLeft,
   TrendingUp, Users, DollarSign, Package, RefreshCw, LogOut, Building2,
-  Plus, Edit2, Trash2, CreditCard, Shield, FileText, CheckCircle2,
-  XCircle, Eye, AlertCircle, Loader2, Upload, Box, Briefcase, Image,
+  Plus, Edit2, Trash2, FileText, CheckCircle2,
+  XCircle, Eye, Loader2, Upload, Box, Briefcase, Image,
 } from 'lucide-react';
+import StatCard from '@/components/admin/StatCard';
+import DataTable from '@/components/admin/DataTable';
+import AlertsBanner from '@/components/admin/AlertsBanner';
+import ReceiptsManager from '@/components/admin/ReceiptsManager';
+import AdminDashboard from '@/components/admin/AdminDashboard';
 
 type Tab = 'overview' | 'orders' | 'quotes' | 'services' | 'leads' | 'banking' | 'receipts' | 'products' | 'portfolio';
 
@@ -1279,84 +1283,6 @@ const Admin: React.FC = () => {
   );
 };
 
-const StatCard: React.FC<{ icon: any; label: string; value: string; color: string }> = ({ icon: Icon, label, value, color }) => {
-  const colors: Record<string, string> = {
-    orange: 'bg-orange-100 text-orange-600',
-    green: 'bg-green-100 text-green-600',
-    blue: 'bg-blue-100 text-blue-600',
-    purple: 'bg-purple-100 text-purple-600',
-  };
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <div className={`w-10 h-10 rounded-lg ${colors[color]} flex items-center justify-center mb-3`}>
-        <Icon className="w-5 h-5" />
-      </div>
-      <div className="text-2xl font-bold text-[#1a2332]">{value}</div>
-      <div className="text-sm text-gray-500">{label}</div>
-    </div>
-  );
-};
-
-const DataTable: React.FC<{ title: string; data: any[]; columns: { label: string; render: (item: any) => React.ReactNode }[]; pageSize?: number }> = ({ title, data, columns, pageSize = 10 }) => {
-  const [page, setPage] = useState(0);
-  const totalPages = Math.ceil(data.length / pageSize);
-  const paginated = data.slice(page * pageSize, (page + 1) * pageSize);
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-        <h3 className="font-bold text-[#1a2332]">{title}</h3>
-        <span className="text-xs text-gray-500">{data.length} registros</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              {columns.map(c => (
-                <th key={c.label} className="text-left px-4 py-3 font-semibold text-gray-700">{c.label}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {paginated.map((item, i) => (
-              <tr key={item.id || i} className="border-t border-gray-100 hover:bg-gray-50">
-                {columns.map(c => (
-                  <td key={c.label} className="px-4 py-3">{c.render(item)}</td>
-                ))}
-              </tr>
-            ))}
-            {data.length === 0 && (
-              <tr>
-                <td colSpan={columns.length} className="text-center py-8 text-gray-500">Sin registros.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50">
-          <button
-            onClick={() => setPage(p => Math.max(0, p - 1))}
-            disabled={page === 0}
-            className="px-3 py-1.5 text-xs font-medium rounded border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            ← Anterior
-          </button>
-          <span className="text-xs text-gray-600">
-            Página {page + 1} de {totalPages}
-          </span>
-          <button
-            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-            disabled={page >= totalPages - 1}
-            className="px-3 py-1.5 text-xs font-medium rounded border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            Siguiente →
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
 
 const BankingForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
   const [form, setForm] = useState({
