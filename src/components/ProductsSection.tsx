@@ -370,7 +370,7 @@ const ProductsSection: React.FC = () => {
                 Continuar al Pago
               </button>
               <p className="text-xs text-gray-500 text-center">
-                Pago seguro con tarjeta de crédito/débito procesado por Stripe.
+                Recibirás los datos de la cuenta bancaria para realizar tu pago.
               </p>
             </div>
           </div>

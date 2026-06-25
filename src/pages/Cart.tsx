@@ -263,9 +263,7 @@ const Cart: React.FC = () => {
                 Proceder al Pago
               </Button>
 
-              <p className="text-xs text-gray-500 text-center mt-4">
-                Pago seguro procesado por Stripe
-              </p>
+              
             </div>
           </div>
         </div>
