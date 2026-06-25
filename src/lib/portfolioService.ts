@@ -32,6 +32,10 @@ class PortfolioService {
     return PortfolioService.instance;
   }
 
+  async getActiveProjects(): Promise<PortfolioProject[]> {
+    return this.getProjects();
+  }
+
   async getProjects(): Promise<PortfolioProject[]> {
     try {
       const { data: projects, error } = await supabase
