@@ -74,7 +74,7 @@ const Admin: React.FC = () => {
 
   const loadPortfolio = async () => {
     setPortfolioLoading(true);
-    const data = await portfolioService.getAllProjects();
+    const data = await portfolioService.getProjects();
     setPortfolioProjects(data);
     setPortfolioLoading(false);
   };
@@ -177,113 +177,13 @@ const Admin: React.FC = () => {
         </div>
 
         {tab === 'overview' && (
-          <div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <StatCard icon={DollarSign} label="Ingresos Totales" value={formatQ(totalRevenue)} color="orange" />
-              <StatCard icon={TrendingUp} label="Pagados" value={formatQ(paidRevenue)} color="green" />
-              <StatCard icon={Package} label="Pedidos" value={String(orders.length)} color="blue" />
-              <StatCard icon={Users} label="Clientes" value={String(totalCustomers)} color="purple" />
-            </div>
-
-            {/* Charts row */}
-            <div className="grid lg:grid-cols-3 gap-6 mb-8">
-              {/* Monthly Revenue Chart */}
-              <div className="bg-white rounded-xl border border-gray-200 p-5 lg:col-span-2">
-                <h3 className="font-bold text-[#1a2332] mb-4">Ingresos Mensuales</h3>
-                {orders.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={(() => {
-                      const months: Record<string, number> = {};
-                      orders.forEach(o => {
-                        const m = new Date(o.created_at).toLocaleDateString('es-GT', { month: 'short', year: '2-digit' });
-                        months[m] = (months[m] || 0) + Number(o.amount || 0);
-                      });
-                      return Object.entries(months).slice(-6).map(([month, amount]) => ({ month, amount }));
-                    })()}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `Q${(v/1000).toFixed(0)}k`} />
-                      <Tooltip formatter={(v: number) => [formatQ(v), 'Ingresos']} />
-                      <Bar dataKey="amount" fill="#f97316" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="text-center py-12 text-gray-400 text-sm">Sin datos de ingresos</div>
-                )}
-              </div>
-
-              {/* Orders by Status Chart */}
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 className="font-bold text-[#1a2332] mb-4">Ventas por Estado</h3>
-                {orders.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie
-                        data={(() => {
-                          const counts: Record<string, number> = {};
-                          orders.forEach(o => { counts[o.status] = (counts[o.status] || 0) + 1; });
-                          return Object.entries(counts).map(([name, value]) => ({ name, value }));
-                        })()}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {['#f97316','#22c55e','#3b82f6','#a855f7','#ef4444','#6b7280'].map(c => <Cell key={c} fill={c} />)}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="text-center py-12 text-gray-400 text-sm">Sin ventas</div>
-                )}
-              </div>
-            </div>
-
-            <div className="grid lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 className="font-bold text-[#1a2332] mb-4">Últimas Ventas</h3>
-                <div className="space-y-3">
-                  {orders.slice(0, 5).map(o => (
-                    <div key={o.id} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
-                      <div>
-                        <div className="font-semibold">{o.item_name}</div>
-                        <div className="text-xs text-gray-500">{o.customer_email}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-orange-600">{formatQ(o.amount)}</div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          o.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                        }`}>{o.status}</span>
-                      </div>
-                    </div>
-                  ))}
-                  {orders.length === 0 && <p className="text-sm text-gray-500">Sin ventas aún.</p>}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 className="font-bold text-[#1a2332] mb-4">Cotizaciones recientes</h3>
-                <div className="space-y-3">
-                  {quotes.slice(0, 5).map(q => (
-                    <div key={q.id} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
-                      <div>
-                        <div className="font-semibold">{q.name || q.email || 'Anónimo'}</div>
-                        <div className="text-xs text-gray-500">{q.department} · {q.square_meters} m²</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-orange-600">{formatQ(Number(q.estimated_avg || 0))}</div>
-                        {q.premium_requested && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">Premium</span>}
-                      </div>
-                    </div>
-                  ))}
-                  {quotes.length === 0 && <p className="text-sm text-gray-500">Sin cotizaciones aún.</p>}
-                </div>
-              </div>
-            </div>
-          </div>
+          <AdminDashboard
+            orders={orders}
+            quotes={quotes}
+            leads={leads}
+            pendingReceipts={receiptStats.pending}
+            onTabChange={(t) => setTab(t as Tab)}
+          />
         )}
 
         {tab === 'orders' && (

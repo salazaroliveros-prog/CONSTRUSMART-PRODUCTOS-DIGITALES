@@ -63,7 +63,7 @@ const Footer: React.FC = () => {
       </div>
 
       <div className="border-t border-white/10 pt-6 text-center text-sm text-white/40">
-        © {new Date().getFullYear()} ConstructoraGT. Todos los derechos reservados. Guatemala 🇬🇹
+        © {new Date().getFullYear()} CONSTRUSMART. Todos los derechos reservados. Guatemala 🇬🇹
       </div>
     </footer>
   );
