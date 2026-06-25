@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, TrendingUp, Package, Users, ShoppingCart, Calculator, HardHat, FileText, Box, Briefcase, Building2, LayoutDashboard } from 'lucide-react';
+import { DollarSign, TrendingUp, Package, Users, FileText } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { formatQ } from '@/lib/constructionData';
 import StatCard from './StatCard';
@@ -7,10 +7,7 @@ import StatCard from './StatCard';
 interface AdminDashboardProps {
   orders: any[];
   quotes: any[];
-  services: any[];
   leads: any[];
-  products: any[];
-  portfolioProjects: any[];
   pendingReceipts: number;
   onTabChange: (tab: string) => void;
 }
@@ -37,8 +34,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ orders, quotes, leads, 
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [orders]);
 
-  const last5Orders = orders.slice(0, 5);
-  const last5Quotes = quotes.slice(0, 5);
+  const last5Orders = React.useMemo(() => orders.slice(0, 5), [orders]);
+  const last5Quotes = React.useMemo(() => quotes.slice(0, 5), [quotes]);
 
   return (
     <div>
@@ -123,7 +120,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ orders, quotes, leads, 
                 </div>
                 <div className="text-right ml-4">
                   <div className="font-bold text-orange-600">{formatQ(Number(o.amount) || 0)}</div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${o.status === 'paid' || o.status === 'delivered' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{o.status}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    o.status === 'paid' || o.status === 'delivered' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                  }`}>{o.status}</span>
                 </div>
               </div>
             ))}
