@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, X, HardHat, Moon, Sun } from 'lucide-react';
+import { Menu, X, Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import CartButton from '@/components/CartButton';
 
@@ -27,14 +27,20 @@ const Header: React.FC<{ onNavigate?: (id: string) => void }> = ({ onNavigate })
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-[#1a2332]/95 backdrop-blur-md border-b border-white/10">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between">
-        <button onClick={() => handleClick('inicio')} className="flex items-center gap-3 text-white">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
-            <HardHat className="w-6 h-6 text-white" />
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-3 flex items-center justify-between">
+        <button onClick={() => handleClick('inicio')} className="flex items-center gap-3 text-white group">
+          <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-orange-500/30 group-hover:ring-orange-500/60 transition-all duration-300">
+            <img
+              src="/LOGO.jpg"
+              alt="Construsmart"
+              className="w-full h-full object-cover"
+              width="44"
+              height="44"
+            />
           </div>
           <div className="text-left">
-            <div className="font-bold text-lg leading-none">ConstructoraGT</div>
-            <div className="text-xs text-orange-400">Soluciones integrales</div>
+            <div className="font-bold text-lg leading-none tracking-tight">CONSTRUSMART</div>
+            <div className="text-xs text-orange-400 font-medium">VENTAS DIGITALES</div>
           </div>
         </button>
 

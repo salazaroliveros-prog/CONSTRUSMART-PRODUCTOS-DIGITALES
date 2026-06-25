@@ -1,5 +1,5 @@
 import React from 'react';
-import { HardHat, Facebook, Instagram, Linkedin } from 'lucide-react';
+import { Facebook, Instagram, Linkedin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Footer: React.FC = () => {
@@ -10,12 +10,12 @@ const Footer: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 md:px-8 grid md:grid-cols-2 lg:grid-cols-4 gap-10 mb-10">
         <div>
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
-              <HardHat className="w-6 h-6 text-white" />
+            <div className="w-11 h-11 rounded-xl overflow-hidden ring-2 ring-orange-500/30 flex-shrink-0">
+              <img src="/LOGO.jpg" alt="Construsmart" className="w-full h-full object-cover" width="44" height="44" />
             </div>
             <div>
-              <div className="font-bold">ConstructoraGT</div>
-              <div className="text-xs text-orange-400">Soluciones integrales</div>
+              <div className="font-bold text-lg">CONSTRUSMART</div>
+              <div className="text-xs text-orange-400 font-medium">VENTAS DIGITALES</div>
             </div>
           </div>
           <p className="text-sm text-white/60">
